@@ -15,6 +15,7 @@ The following scripts don’t work with VAR files. Content must first be extract
 3.	<b>NormalizeVAM4VR.ps1</b> – Big dog changes. See below.
 
 Once one of the above scripts is run, you can use:
+
 4.	<b>CleanUp.ps1</b> – remove empty/duplicate items after running NormalizeVAM4VR.ps1 (see below)
 
 5.	<b>DupScenes.ps1</b> – move duplicates to a recycle bin.
