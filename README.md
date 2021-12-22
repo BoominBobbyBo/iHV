@@ -9,7 +9,9 @@ The following script works only with VAR files
 1.	RationalizeVarVersions.ps1</b> – remove previous versions of VAR files.
 
 The following scripts don’t work with VAR files. Content must first be extracted from VARs for the scripts to work.
+
 2.	<b>RemoveVarPaths.ps1</b> –enable VAM to find resources that have been extracted/moved out VARs.
+
 3.	<b>NormalizeVAM4VR.ps1</b> – Big dog changes. See below.
 
 Once one of the above scripts is run, you can use:
