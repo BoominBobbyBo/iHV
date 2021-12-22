@@ -1,5 +1,5 @@
 # iHV
-I hate VARs. That is, Virt-A-Mate (VAM) VAR files. Manage versions, manage duplicate content, and automate global preferences using open, editable Powershell scripts.
+Virt-A-Mate (VAM) VAR file management. Manage versions, manage duplicate content, and automate global preferences using open, editable Powershell scripts.
 
 Utilities for File Management
 
