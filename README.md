@@ -15,11 +15,16 @@ The following scripts don’t work with VAR files. Content must first be extract
 3.	<b>NormalizeVAM4VR.ps1</b> – Big dog changes. See below.
 
 Once one of the above scripts is run, you can use:
-4.	<b>CleanUp.ps1</b> – remove empty/duplicate items after running NormalizeVAM4VR.ps1 (see below)<tr>
+4.	<b>CleanUp.ps1</b> – remove empty/duplicate items after running NormalizeVAM4VR.ps1 (see below)
+
 5.	<b>DupScenes.ps1</b> – move duplicates to a recycle bin.
+
 6.	<b>MoveUnusedFiles.ps1</b> – move “orphaned” resources that are not linked to a VAM instruction file
+
 7.	<b>NormalizeFolder.ps1</b> –flatten folders by moving content from subfolders into the parent folder
+
 8.	<b>VerifyPaths.ps1</b> – scans VAM instruction files for dependencies and tells you what’s missing
+
 
 Requirements
 -	Windows PowerShell must be installed and authorized for use on your device
