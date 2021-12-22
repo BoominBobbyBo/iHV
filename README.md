@@ -1,5 +1,5 @@
 # iHV
-Virt-A-Mate (VAM) VAR file management. Manage versions, manage duplicate content, and automate global preferences using open, editable Powershell scripts.
+VAR file management for Virt-A-Mate (VAM) software. Manage versions, manage duplicate content, and automate global preferences using open, editable Powershell scripts.
 
 Utilities for File Management
 
