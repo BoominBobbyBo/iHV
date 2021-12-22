@@ -643,6 +643,7 @@ $Exceptions = @(
     "stringChooserValue" # Required: unity asset path
     "VamChan" # optional: favorite hair author
     "VamTextures" # optional: Male gen textures from Jackaroo
+    "VRDollz" # optional: clothing author who does not use unique file names
 
     # "./" # Relative path for scenes; if not excepted, this gets turned into a sound path regardless of the actual content
 )
