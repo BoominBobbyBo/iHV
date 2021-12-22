@@ -1,8 +1,8 @@
 <# I Hate VARS - Move Unused Resource Files
 
     - Scope: Morphs; Optionally: Hair, Clothing, Textures
-      Suggestion: scan all new content for morphs and textures
-      Suggestion: only scan mature VAM builds for hair / clothing
+        Suggestion: scan all new content for morphs and textures >>>> $blnMoveMorphs <<<  >>>> $blnMoveHair <<<  >>>> $blnMoveClothing <<<  >>>> $blnMoveTextures <<<
+        Suggestion: only scan mature VAM builds for hair / clothing
 
     - You can restore any moved files, post execution, if needed/prefered
 
@@ -42,8 +42,8 @@ $blnBuildLinkLibrary = $true   # set to false to skip the process of scanning al
                                # CAUTION: running as false witout a previous and currents LinksCSV.csv  will cause all morphs, hair and cloths to be moved
 
 $blnMoveMorphs = $true         # set to false to block action but still produce a log/report
-$blnMoveHair = $true           # set to false to block action but still produce a log/report
-$blnMoveClothing = $true       # set to false to block action but still produce a log/report
+$blnMoveHair = $false          # set to false to block action but still produce a log/report
+$blnMoveClothing = $false      # set to false to block action but still produce a log/report
 $blnMoveTextures = $true       # set to false to block action but still produce a log/report
 
 $RecycleBin          = ($vamRoot + '_2a iHV_RecycleBin')
