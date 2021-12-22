@@ -10,6 +10,7 @@
     
     - REQUIRES
     - Content must have been extracted from VARs and VAR paths removed, using Normalize4VR.ps1
+    - Keep the below arrays in synch with the arrays in the Normalize4VR.ps1 script
 
 #>
 Write-Host

@@ -13,9 +13,9 @@ $vamRoot variable must reflect the staging or VAM root folder that you wish to t
 $vamRoot = ($PSScriptRoot + "\")
 
 $scriptList = @(
-    $vamRoot + '_1a iHV_01_Normalize4VR.ps1'
-    #$vamRoot + '_1a iHV_Util_CleanUp.ps1'
-    $vamRoot + '_1a iHV_Util_VerifyPaths.ps1'
+    $vamRoot + '_1a iHV_01_Normalize4VR'
+    $vamRoot + '_1a iHV_02_CleanUp'
+    $vamRoot + '_1a iHV_03_VerifyPaths'
 
 )
 

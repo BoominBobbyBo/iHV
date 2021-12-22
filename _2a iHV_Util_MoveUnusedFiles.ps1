@@ -27,7 +27,9 @@ Write-Host
 Read-Host -Prompt 'You must run either RemoveVARpaths.ps1 or NormalizeVAM4VR.ps1 first (hit ENTER to continue)'
 Read-Host -Prompt 'No. Really. All morphs, hair, and clothes will be moved if you dont run RemoveVARpaths.p1 or Ns.ps1 first (hit ENTER to continue)'
 
-    ######################
+    ###################### SCRIPT TUNING ###################### 
+
+# > > > SCRIPT TUNING
 
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + '\') }
 
@@ -49,7 +51,7 @@ $LinksCSVpath        = ($RecycleBin + '\_2a iHV_InstructionLinks.csv')
 $MoveReportCSVpath   = ($RecycleBin + '\_2a iHV_MoveReport.csv')
 
 
-    ######################
+    ###################### SCRIPT TUNING ###################### 
 
 MD ($RecycleBin) -ErrorAction SilentlyContinue
 MD ($RecycleBin + "\Clothing") -ErrorAction SilentlyContinue

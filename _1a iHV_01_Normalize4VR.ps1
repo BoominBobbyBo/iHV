@@ -107,7 +107,7 @@ Function Normalize-ResourceDir {
                 Else{
                     # write-host ".....Move efile: " $_.FullName " to " ($vamRoot + $ResourceDir + "iHV_Normalized\") 
                     $LogEntry + ".....Move efile: " + $_.FullName + " to " + ($vamRoot + $ResourceDir + "iHV_Normalized\") | Out-File -FilePath $LogPath -Append
-                    $_ | Move-Item -Destination ($vamRoot + $ResourceDir + "iHV_Normalized\") -ErrorAction SilentlyContinue
+                    $_ | Move-Item -Destination ($vamRoot + $ResourceDir + "iHV_Normalized\") -Force -ErrorAction SilentlyContinue
 
                 } # Else if not an explicit file type
 
@@ -198,10 +198,15 @@ Function Update-InstructionFile {
             # ---------------------------> Update to normalized Paths
 
                 $ExceptionFound = $false
-                $Exceptions | ForEach-Object{ If( $Line.ToLower().indexOf($_.ToLower()) -ge 0 ){ $ExceptionFound = $true } }
+                $Exceptions | ForEach-Object{ If( $Line -imatch $_ ){ $ExceptionFound = $true } }
                 If($Line -ilike "*Custom/Atom/*" -And $Line -inotlike "*Custom/Atom/Person/*"){$ExceptionFound = $true} # For Custom/Atom: Only process Custom/Atom/Person/
 
-                If($ExceptionFound -eq $false -and ($Line.indexof("./") -ge 0 -or $Line.indexof("Custom/") -ge 0)){
+
+                
+                $IsIdiotPath = $false
+                $IdiotPaths | ForEach-Object { If( $Line -imatch ($_.IdiotPath.Trim("/") ) ) { $IsIdiotPath = $true } }
+
+                If($ExceptionFound -eq $false -and ($Line.indexof("./") -ge 0 -or $Line.indexof("Custom/") -ge 0 -Or $IsIdiotPath -eq $true) ){
 
                     $NodeName = ""
                     $NodeValue = ""
@@ -215,9 +220,6 @@ Function Update-InstructionFile {
 
                     $FullPath = ($NodeValue.Substring( 0, $LastSlash ).Trim() + "/")
                     $FileName = $NodeValue.Replace($FullPath,"")
-
-                    $IsIdiotPath = $false
-                    $IdiotPaths | ForEach-Object { if( $FullPath.ToLower().indexOf($_.IdiotPath.ToLower() ) -ge 0 ){$IsIdiotPath = $true} }
                     
                     # Write-Host -------FN:$FileName::::BP:$BasePath
                     If($FileName.Length -ge 5){
@@ -232,10 +234,10 @@ Function Update-InstructionFile {
                         # consider idiot cases before swapping out idio paths for conventional paths
                         
                         ElseIf( $IsIdiotPath -eq $true){
-                            $IdiotPaths | ForEach-Object { If( $FullPath -imatch  $_.IdiotPath  ){
+                            $IdiotPaths | ForEach-Object {
                                 $NewLine = $Line -ireplace [regex]::Escape($FullPath), ($_.TargetPath)                               
                                 $Instructions = $Instructions -ireplace [regex]::Escape($Line), ($NewLine)
-                            } } # ElseIf Idiot path
+                            } # ElseIf Idiot path
                         }
                         ElseIf( $FullPath -ilike "*/texture*" -and $blnNormalizeTextures -eq $true ){ $Instructions = $Instructions -ireplace [regex]::Escape(($FullPath + $FileName)), ("Custom/Atom/Person/Textures/iHV_Normalized/" + $FileName) }
                         
@@ -318,7 +320,7 @@ Function Update-InstructionFile {
  
                     # update improvedPoV plugin if male
 
-                    If($Sex -eq "Male"){
+                    If($Sex -eq "Male" -and $Persons.Count -ge 2){
 
                         # Add ImprovedPOV and number so we can configure
 
@@ -410,27 +412,30 @@ Function Update-InstructionFile {
                 } #ForEach Person     
 
                 # CONFIGURE LIGHTS
+
+                If($File_FullName -inotlike "*Alpaca*" -or $File_FullName -inotlike "*C&G*" -or $File_FullName -inotlike "*Reanimator*" -or $File_FullName -inotlike "*VirtAmteur*"-or $File_FullName -inotlike "*Niko3DX*"){
         
-                $lights = @()
-                $lights = $JSON.atoms | Where-Object{$_.type -eq 'InvisibleLight'}
+                    $lights = @()
+                    $lights = $JSON.atoms | Where-Object{$_.type -eq 'InvisibleLight'}
 
-                ForEach($light in $lights){
+                    ForEach($light in $lights){
        
-                    ForEach($storedObject in $light.storables){
+                        ForEach($storedObject in $light.storables){
    
-                       if ($storedObject.id -eq 'Light'){
+                            if ($storedObject.id -eq 'Light'){
+                                $key = @()
+                                ForEach($key in $storedObject){
 
-                            $key = @()
-                            ForEach($key in $storedObject){
-
-                                If($key.type -eq $null){$key | add-member -Name "type" -value 'Spot' -MemberType NoteProperty}else {$key.type = 'Spot'}
-                                If($key.intensity -eq $null){$key | add-member -Name "intensity" -value '0.9' -MemberType NoteProperty}else {$key.intensity = '0.9'}
-                                If($key.renderType -eq $null){$key | add-member -Name "renderType" -value 'ForcedPixel' -MemberType NoteProperty}else {$key.renderType = 'ForcedPixel'}
-                                If($key.shadowResolution -eq $null){$key | add-member -Name "shadowResolution" -value 'VeryHigh' -MemberType NoteProperty}else {$key.shadowResolution = 'VeryHigh'}
+                                    If($key.type -eq $null){$key | add-member -Name "type" -value 'Spot' -MemberType NoteProperty}else {$key.type = 'Spot'}
+                                    If($key.intensity -eq $null){$key | add-member -Name "intensity" -value '0.9' -MemberType NoteProperty}else {$key.intensity = '0.9'}
+                                    If($key.renderType -eq $null){$key | add-member -Name "renderType" -value 'ForcedPixel' -MemberType NoteProperty}else {$key.renderType = 'ForcedPixel'}
+                                    If($key.shadowResolution -eq $null){$key | add-member -Name "shadowResolution" -value 'VeryHigh' -MemberType NoteProperty}else {$key.shadowResolution = 'VeryHigh'}
+                                }
                             }
                         }
-                    }
-                } #ForEach($light
+                    } #ForEach($light
+
+                } # if not a skilled electrician
 
                 $Instructions = $JSON | ConvertTo-Json -Depth 24
 
@@ -629,7 +634,7 @@ $Exceptions = @(
     "iHV_Normalized" # Required: processed IHV files
     "a iHV_" # iHV scripts & log files
     "Jackaroo" # optional: clothing author who does not use unique file names
-    "myFav" # Required: folders/files prefix that identifies content exempt from normalizing by this script, so to establish an folder organization scheme
+    "myFav" # Required: folders/files prefix that identifies content exempt from normalizing by this script, so to establish a personal folder organization scheme
     "NoStage" # optional: hair author
     "PostMagic" # optional: Let it ride and fail. I delete this since it's not VR friendly
     "Putz" # optional: clothing author who does not use unique file names
