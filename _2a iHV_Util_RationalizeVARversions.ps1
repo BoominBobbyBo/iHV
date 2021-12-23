@@ -7,9 +7,9 @@ Write-Host
 
     ###################### SCRIPT TUNING ###################### 
 
-$blnMoveFiles           = $true # set to false for testing 
-$blnCheckArchives       = $true # Check Zips RARs & 7zs - slows this down by 66%
-$blnFixNames            = $true # Remove anything that's in () from file names; remove .orig extensions
+$blnMoveFiles           = $true  # set to false for testing 
+$blnCheckArchives       = $true  # Check Zips RARs & 7zs - slows this down by 66%
+$blnFixNames            = $false # Remove anything that's in () from file names; remove .orig extensions; set to true only if extracting content from VARs later, or you may create access issues in game.
 
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") }
 
