@@ -32,8 +32,9 @@ $FilesMovedCount = 0
 
 """"+'Type'+""""+','+""""+ 'LagacyFileFullPath' +""""+","+""""+'Moved'+""""+","+""""+'MasterFileName'+"""" | Out-File -FilePath $RatVarReportCSVpath # Clears previous and creates the report file anew for each execution
 
+#
+#Optional: Fix file names to reduce errors below
 
-#Optional: Fix names
 
 If($blnFixNames -eq $true){
 
@@ -93,7 +94,7 @@ If($blnFixNames -eq $true){
             $FilesMovedCount = $FilesMovedCount + 1        
         }
 
-    } # for each found with ()
+    } # for each found with .orig
 
 
     # Remove - Copy from file names
@@ -118,7 +119,31 @@ If($blnFixNames -eq $true){
             $FilesMovedCount = $FilesMovedCount + 1        
         }
 
-    } # for each found with ()
+    } # for each found with Copy
+
+    # Remove []
+    Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { ($_.Name -match "\[" -and $_.Name -match "\]") -and $_.FullName -inotlike ("*" + $RecycleBin + "*") } | Foreach-Object {
+       
+        $NewName = $_.Name.Replace("[", "")
+        $NewName = $NewName.Replace("]", "").Trim()
+
+        $Error.Clear()
+        
+        Rename-Item $_ $NewName -ErrorAction SilentlyContinue
+
+        If($Error[0] -match "Cannot create a file when that file already exists."){ 
+
+            If($blnMoveFiles -eq $true){ $_ | Move-Item -Destination ($RecycleBin) -Force -ErrorAction SilentlyContinue }
+            """"+'DUP'+""""+','+""""+ $_.FullName +""""+","+""""+$blnMoveFiles+""""+","+""""+$NewName+"""" | Out-File -FilePath $RatVarReportCSVpath -Append
+        
+            Write-host .................................................
+            Write-host ...Dup detected: $_.Name
+            Write-host .................................................
+        
+            $FilesMovedCount = $FilesMovedCount + 1        
+        }
+    
+    } # Remove []
 
 } # if fix names
 
