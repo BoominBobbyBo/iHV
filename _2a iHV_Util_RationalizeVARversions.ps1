@@ -7,41 +7,135 @@ Write-Host
 
     ###################### SCRIPT TUNING ###################### 
 
-$blnMoveFiles = $true # set to false for testing 
-$blnCheckArchives = $true # Check Zips and RARs - slows this down by 66%
+$blnMoveFiles           = $true # set to false for testing 
+$blnCheckArchives       = $true # Check Zips RARs & 7zs - slows this down by 66%
+$blnFixNames            = $true # Remove anything that's in () from file names; remove .orig extensions
 
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") }
 
-$ScriptName = "iHV_Util_RationalizeVARs"
-$ScriptVersion = "1.0.0"
-$LogPath = ".\_2a " + $ScriptName + ".log"
-$LogEntry = Get-Date -Format "yyyy/MM/dd HH:mm" 
-$VAR_RecycleBin = ($vamRoot + "_2a iHV_VAR RecycleBin")  # SUBFOLDER NAME
+$ScriptName             = "iHV_Util_RationalizeVARs"
+$ScriptVersion          = "1.0.1"
+$LogPath                = ".\_2a " + $ScriptName + ".log"
+$LogEntry               = Get-Date -Format "yyyy/MM/dd HH:mm" 
+
+$RecycleBin             = ($vamRoot + "_2a iHV_VAR RecycleBin")  # SUBFOLDER NAME
+$RatVarReportCSVpath    = ($RecycleBin + '\_iHV_RationalizedVarReport.csv')
 
     ######################               ###################### 
 
 
 
-MD ($VAR_RecycleBin + "\") -ErrorAction SilentlyContinue
+MD ($RecycleBin + "\") -ErrorAction SilentlyContinue
 $arrVARs = @()
 $arrArchives = @()
 $FilesMovedCount = 0
 
+""""+'Type'+""""+','+""""+ 'LagacyFileFullPath' +""""+","+""""+'Moved'+""""+","+""""+'MasterFileName'+"""" | Out-File -FilePath $RatVarReportCSVpath # Clears previous and creates the report file anew for each execution
+
+
+#Optional: Fix names
+
+If($blnFixNames -eq $true){
+
+    # Remove (x) from file names - e.g. backup files or copies
+
+    Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { ($_.Name -ilike "*.var" -or $_.Name -ilike "*.zip" -or $_.Name -ilike "*.rar" -or $_.Name -ilike "*.7z") -and $_.Name -inotlike "*Morph*"  -and $_.Name -ilike "*(*" -and $_.Name -ilike "*)*"  -and $_.FullName -inotlike ("*" + $RecycleBin + "*") } | Foreach-Object {
+ 
+        Write-Host ---Fixing file name: $_.Name
+ 
+        $FullName = $_.FullName
+        $BeforePar = $_.FullName.Substring(0, $_.FullName.indexOf("(")).Trim()
+        $AfterPar = $_.FullName.Replace( $_.FullName, $_.FullName.Substring($_.FullName.indexOf(")") + 1 ) ).Replace(" - Copy","").Trim()
+
+        #write-host FN::: $FullName
+        #write-host BP::: $BeforePar
+        #write-host AP::: $AfterPar
+        #Write-host Combo:: ($BeforePar + $AfterPar)
+
+        $Error.Clear()
+
+        Rename-Item $_ ($BeforePar + $AfterPar) -ErrorAction SilentlyContinue
+
+        If($Error[0] -match "Cannot create a file when that file already exists."){ 
+
+            If($blnMoveFiles -eq $true){ $_ | Move-Item -Destination ($RecycleBin) -Force -ErrorAction SilentlyContinue }
+            """"+'DUP'+""""+','+""""+ $_.FullName +""""+","+""""+$blnMoveFiles+""""+","+""""+($BeforePar + $AfterPar)+"""" | Out-File -FilePath $RatVarReportCSVpath -Append
+        
+            Write-host .................................................
+            Write-host ...Dup detected: $_.Name
+            Write-host .................................................
+        
+            $FilesMovedCount = $FilesMovedCount + 1        
+        }
+
+    } # for each found with ()
+
+
+    # Remove .orig from file names - e.g. unpacked VARs
+
+    Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { ($_.Name -ilike "*.orig") -and $_.FullName -inotlike ("*" + $RecycleBin + "*") } | Foreach-Object {
+ 
+        Write-Host ---Fixing: $_.Name
+
+        $Error.Clear()
+
+        Rename-Item $_ ($_ -ireplace ".orig", "")  -ErrorAction SilentlyContinue
+
+        If($Error[0] -match "Cannot create a file when that file already exists."){ 
+
+            If($blnMoveFiles -eq $true){ $_ | Move-Item -Destination ($RecycleBin) -Force -ErrorAction SilentlyContinue }
+            """"+'DUP'+""""+','+""""+ $_.FullName +""""+","+""""+$blnMoveFiles+""""+","+""""+($_ -ireplace ".orig", "")+"""" | Out-File -FilePath $RatVarReportCSVpath -Append
+        
+            Write-host .................................................
+            Write-host ...Dup detected: $_.Name
+            Write-host .................................................
+        
+            $FilesMovedCount = $FilesMovedCount + 1        
+        }
+
+    } # for each found with ()
+
+
+    # Remove - Copy from file names
+
+    Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { ($_.Name -ilike "* - Copy*") -and $_.FullName -inotlike ("*" + $RecycleBin + "*") } | Foreach-Object {
+ 
+        Write-Host ---Fixing: $_.Name
+
+        $Error.Clear()
+
+        Rename-Item $_ ($_ -ireplace " - Copy", "")  -ErrorAction SilentlyContinue
+
+        If($Error[0] -match "Cannot create a file when that file already exists."){ 
+
+            If($blnMoveFiles -eq $true){ $_ | Move-Item -Destination ($RecycleBin) -Force -ErrorAction SilentlyContinue }
+            """"+'DUP'+""""+','+""""+ $_.FullName +""""+","+""""+$blnMoveFiles+""""+","+""""+($_ -ireplace " - Copy", "")+"""" | Out-File -FilePath $RatVarReportCSVpath -Append
+        
+            Write-host .................................................
+            Write-host ...Dup detected: $_.Name
+            Write-host .................................................
+        
+            $FilesMovedCount = $FilesMovedCount + 1        
+        }
+
+    } # for each found with ()
+
+} # if fix names
 
 
 # Build master table of VARs 
 #  -exclude files with 'Morphs' in the name, which tend to be required regardless of the version, and files already moved into the RecycleBin folder
 
-Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { $_.Name -ilike "*.var" -and $_.Name -inotlike "*Morph*"  -and $_.Name -inotlike "*(*" -and $_.Name -inotlike "*)*"  -and $_.FullName -inotlike ("*" + $VAR_RecycleBin + "*")  } | Foreach-Object {
+Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { $_.Name -ilike "*.var" -and $_.Name -inotlike "*Morph*"  -and $_.Name -inotlike "*(*" -and $_.Name -inotlike "*)*"  -and $_.FullName -inotlike ("*" + $RecycleBin + "*")  } | Foreach-Object {
 
     If( ($_.ToString().ToCharArray() -eq '.').count -ge 2 ){ # not all authors follow the convention; filter out those not formated like a VAR
 
-        $VarName = $_.Name -iReplace(".var","")
+        $FileName = $_.Name -iReplace(".var","")
 
         # Get the base name & version
 
-        $BaseName = $VarName.Substring(0, $VarName.lastindexof(".") ).Trim() # remove the suffix, which is the version number
-        $Version = $VarName.Replace($BaseName,"").Trim().Trim(".") # leave only the suffix, which is the version number
+        $BaseName = $FileName.Substring(0, $FileName.lastindexof(".") ).Trim() # remove the suffix, which is the version number
+        $Version = $FileName.Replace($BaseName,"").Trim().Trim(".").Replace("_",".") # leave only the suffix, which is the version number
 
         $tmp = New-Object -TypeName PSObject
         $tmp | Add-Member -Name 'BaseName' -MemberType Noteproperty -Value $BaseName
@@ -62,24 +156,27 @@ Write-host ---Found $arrVARs.Count VAR files
 
 If($blnCheckArchives -eq $true){
 
-    Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { ($_.Name -ilike "*.zip" -or $_.Name -ilike "*.rar*")  -and $_.Name -inotlike "*(*" -and $_.Name -inotlike "*)*"  -and $_.FullName -inotlike ("*" + $VAR_RecycleBin + "*")  } | Foreach-Object {
+    Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { ($_.Name -ilike "*.zip" -or $_.Name -ilike "*.rar*" -or $_.Name -ilike "*.7z*")  -and $_.Name -inotlike "*(*" -and $_.Name -inotlike "*)*"  -and $_.FullName -inotlike ("*" + $RecycleBin + "*")  } | Foreach-Object {
 
-        $archiveName = $_.Name
+        $archiveName = $_.Name                                                                                                                        # e.g. BallerDev.BallerLook.2.zip
 
-        If( ($_.ToString().ToCharArray() -eq '.').count -ge 3 ){ # not all zips / rars hold VAR content; filter out those not formated like a VAR
+        If( ($_.ToString().ToCharArray() -eq '.').count -ge 2 ){                                                                                      # not all zips / rars hold VAR content; filter out those not formated like a VAR
 
             # Get the base name & version
 
-            $BaseName = $archiveName.Substring(0, $archiveName.lastindexof(".") -1 ).Trim()
-            $Version = $archiveName.Replace($BaseName,"").Trim().Trim(".").Replace(".var","").Trim().Trim(".")
+            $BaseName = $archiveName.Substring(0, $archiveName.lastindexof(".") -2 ).Trim()                                                           # e.g. BallerDev.BallerLook
+            $Version = $archiveName.Replace($BaseName,"").Trim().Trim(".").Replace(".zip","").Replace(".rar","").Replace(".7z","").Replace("_",".")   # e.g. 2
+            $type = ($archiveName.Substring($archiveName.lastindexof(".") +1 ).Trim() )                                                               # e.g. zip
 
+            # write-host archive: ::: $BaseName ::: $Version ::: $Type
+            
             $tmp = New-Object -TypeName PSObject
             $tmp | Add-Member -Name 'BaseName' -MemberType Noteproperty -Value $BaseName
             $tmp | Add-Member -Name 'Version' -MemberType Noteproperty -Value $Version
             $tmp | Add-Member -Name 'FullName' -MemberType Noteproperty -Value $_.FullName
+            $tmp | Add-Member -Name 'Type' -MemberType Noteproperty -Value $type
 
             $arrArchives += $tmp
-
         }
                 
     } # For each .VAR file in vamRoot
@@ -98,9 +195,9 @@ $arrVARs | ForEach-Object {
         $Version = $_.Version
         $Name = $BaseName + "." + $Version
 
-        Write-Host ---Rationalizing: $Name
-
         If( $arrMovedFiles.Contains($Name) -eq $false ){ # if file has not been moved already
+
+            Write-Host ---Rationalizing: ($Name + ".var")
 
             $arrVARs | ForEach-Object {
 
@@ -110,17 +207,22 @@ $arrVARs | ForEach-Object {
 
                 If( $BaseName -eq $BaseName2 ){
             
-                    If( $Version -eq $Version2 -and $arrMovedFiles.Contains($Name2) -eq $false){}
-                    ElseIf( [int]$Version -gt [int]$Version2 -and $arrMovedFiles.Contains($Name2) -eq $false){ 
-                        If($blnMoveFiles -eq $true){ $_.FullName | Move-Item -Destination ($VAR_RecycleBin) -Force -ErrorAction SilentlyContinue }
+                    If( $Version -eq $Version2){}                          # -and $arrMovedFiles.Contains($Name2) -eq $false
+                    ElseIf( [int]$Version -gt [int]$Version2 ){            # -and $arrMovedFiles.Contains($Name2) -eq $false 
+
+                        If($blnMoveFiles -eq $true){ $_.FullName | Move-Item -Destination ($RecycleBin) -Force -ErrorAction SilentlyContinue }
+                        """"+'VAR'+""""+','+""""+ $_.FullName +""""+","+""""+$blnMoveFiles+""""+","+""""+($Name + ".var")+"""" | Out-File -FilePath $RatVarReportCSVpath -Append
+                    
                         Write-host .................................................
-                        Write-host ...VAR moved: $Name2
+                        Write-host ...Legacy VAR detected: $Name2
                         Write-host .................................................
+                    
                         $FilesMovedCount = $FilesMovedCount + 1
                         $arrMovedFiles += $Name2
+                    
                     }
 
-                } # If varName = varName
+                } # If FileName = FileName
 
             } # Get-ChildItem files
 
@@ -137,18 +239,19 @@ If($blnCheckArchives -eq $true){
 
     $arrArchives | Foreach-Object { 
 
-        $Archive = $_.BaseName
+        Write-Host ---Rationalizing: ($_.BaseName + "." + $_.Version + "." + $_.Type) 
 
-        Write-Host ---Rationalizing: ($Archive + $_.Version) # Version has the file extension too, e.g. "2.zip" but it doesn't matter
-
-        $VarArchive = ""
-        $VarArchive = $arrArchives.BaseName |? {$arrVARs.BaseName -contains $_}
-
-        If($VarArchive -ne ""){ 
-            If($blnMoveFiles -eq $true){ ($_.FullName ) | Move-Item -Destination ($VAR_RecycleBin) -Force -ErrorAction SilentlyContinue }
-            Write-host ...Archive  moved: ($_.BaseName + "." +  $_.Version)
+        If($arrVARs.BaseName -contains $_.BaseName){ 
+            
+            If($blnMoveFiles -eq $true){ ($_.FullName ) | Move-Item -Destination ($RecycleBin) -Force -ErrorAction SilentlyContinue }
+            """"+$_.Type+""""+','+""""+ $_.FullName +""""+","+""""+$blnMoveFiles+""""+","+""""+($_.BaseName + ".X.var")+"""" | Out-File -FilePath $RatVarReportCSVpath -Append
+            
             Write-host .................................................
+            Write-host ...Legacy Archive Detected: ($_.BaseName + "." +  $_.Version + "." + $_.Type)
+            Write-host .................................................
+            
             $FilesMovedCount = $FilesMovedCount + 1
+        
         }
 
     }
