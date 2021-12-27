@@ -1,5 +1,5 @@
 <#
-    I Hate VARS - Normalize Folder ContentR
+    I Hate VARS - Normalize Folder Content
 
     Consolidate all files, from subfolders into the root where the script is
 
@@ -21,7 +21,7 @@ Else{
     Get-ChildItem -Path ($PSScriptRoot) -File -Recurse | ForEach-Object {
 
         $_ | Move-Item -Destination $PSScriptRoot -ErrorAction SilentlyContinue
-    
-    }
+
+    } 
 
 }
