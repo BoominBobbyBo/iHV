@@ -530,9 +530,7 @@ $ResourceDirs = @(
     "Custom/Sounds/"
     "Custom/Sounds/WEBM/"
 )
-If($blnNormalizeTextures -eq $true){                          # DANGER! test test test and accept results before losing custom textures
-    $ResourceDirs += "Custom/Atom/Person/Textures/"
-} 
+If($blnNormalizeTextures -eq $true){ $ResourceDirs += "Custom/Atom/Person/Textures/" } # DANGER! test test test and accept results before losing custom textures
 $ResourceDirs | Foreach-Object {MD ($vamRoot + $_.Replace("/","\") + "iHV_Normalized\") -ErrorAction SilentlyContinue}
 
 #  IDIOT FOLDERS - case sensitive; this arry will be updated further down to include any unlisted folders found ino the root of VAM
@@ -647,6 +645,7 @@ $Exceptions = @(
 
     # "./" # Relative path for scenes; if not excepted, this gets turned into a sound path regardless of the actual content
 )
+If($blnNormalizeTextures = $false){ $Exceptions += "Custom/Atom/Person/Textures"}
 
 
 
