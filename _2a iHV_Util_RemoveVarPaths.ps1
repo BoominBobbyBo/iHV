@@ -50,7 +50,7 @@ Function Update-Files {
                 } 
                 
                 # Remove VAR prefixes from general JSON pathss
-                if($NodeValue -match "/Custom"){
+                if($NodeValue -ilike "*:/*"){
                     $blnWasTheFileChanged = $true
 
                     #write-host VAR Prefix found: $NodeValue.Trim()
