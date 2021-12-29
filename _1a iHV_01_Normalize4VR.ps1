@@ -179,7 +179,7 @@ Function Update-InstructionFile {
                 } 
                 
                 # Remove VAR prefixes from general JSON paths
-                if($NodeValue -ilike "*/Custom/*"){
+                if($NodeValue -ilike "*:/*"){
                     $blnWasTheFileChanged = $true
 
                     $StartIndex = 1                     
@@ -201,12 +201,11 @@ Function Update-InstructionFile {
                 $Exceptions | ForEach-Object{ If( $Line -imatch $_ ){ $ExceptionFound = $true } }
                 If($Line -ilike "*Custom/Atom/*" -And $Line -inotlike "*Custom/Atom/Person/*"){$ExceptionFound = $true} # For Custom/Atom: Only process Custom/Atom/Person/
 
-
                 
                 $IsIdiotPath = $false
                 $IdiotPaths | ForEach-Object { If( $Line -imatch ($_.IdiotPath.Trim("/") ) ) { $IsIdiotPath = $true } }
 
-                If($ExceptionFound -eq $false -and ($Line.indexof("./") -ge 0 -or $Line.indexof("Custom/") -ge 0 -Or $IsIdiotPath -eq $true) ){
+                If($ExceptionFound -eq $false -and ( $Line.indexof("./") -ge 0 -or $Line.indexof("Custom/") -ge 0 -Or $IsIdiotPath -eq $true ) ){
 
                     $NodeName = ""
                     $NodeValue = ""
@@ -486,7 +485,7 @@ $VoicePitch            = "1.25" # raise the pitch of female character voices by 
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") } # don't use .\ for the root path for this script: it's kills path parsing above
 
 $ScriptName            = "iHV_Normalize4VR"
-$ScriptVersion         = "0.5"
+$ScriptVersion         = "1.0.0"
 $LogPath               = ($PSScriptRoot + "\_1a " + $ScriptName + ".log")
 $LogEntry              = Get-Date -Format "yyyy/MM/dd HH:mm" 
 
