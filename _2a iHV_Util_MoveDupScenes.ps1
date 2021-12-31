@@ -4,7 +4,7 @@
         see duplicate file origins
         manually address identified duplicates that have not been automatically moved
 
-    - Scans VAM Custom and Saves folders for instruction files (.JSON, .VAM, .VAP, .VAJ)
+    - Scans VAM Custom and Saves folders for instruction files (.JSON)
     - Compares file names & size to find duplicates
     - Optional: set >>>> $blnMoveDups <<<< to $true to auto move dups into a RecycleBin
     - Reports into a CSV file on all dups found
@@ -21,7 +21,7 @@ Write-Host
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") }
 
 $ScriptName            = "iHV_Util_MoveDupScenes"
-$ScriptVersion         = "0.5"
+$ScriptVersion         = "1.0.0"
 $LogPath               = ".\_2a " + $ScriptName + ".log"
 $LogEntry              = Get-Date -Format "yyyy/MM/dd HH:mm" 
 
@@ -32,8 +32,7 @@ $blnMoveDups           = $true
 
 # PERSONAL EXCEPTIONS - ignore these anyway (format: keywords, no file extenstions)
 $Exceptions = @(
-    "aBackup" # optional: have any content you don't want to normalize or change?
-    "BobB" # optional: my author name - change to yours
+    "BobB_" # optional: my author name - change to yours
     "2021_clothes_pack_by_Daz" # optional: clothing author who does not use unique file names
     "Custom/Assets/Audio/RT_LipSync" # required for lip sync plugin RT_LipSync
     "Custom/Scripts" # Required: scripts have embedded paths that would be disrupted by iHV
@@ -53,22 +52,15 @@ MD ($RecycleBin) -ErrorAction SilentlyContinue
 $arrInstructionFiles = @()
 $InstructionFileCount = 0
 
-Write-Host ---Discovering instruction files from VAM\Custom\*.*
-
-Get-ChildItem -Path ($vamRoot + 'Custom' ) -File -Include *.json, *.vap, *.vaj, *.vam -Recurse -Force | Foreach-Object { 
-        $tmp = @{FullName=($_.FullName); FileSize=$_.length}
-        $arrInstructionFiles += $tmp # $_.FullName
-        $InstructionFileCount = $InstructionFileCount + 1
-}
-
 Write-Host ---Discovering instruction files from VAM\Saves\*.*
 
-Get-ChildItem -Path ($vamRoot + 'Saves' ) -File -Include *.json, *.vap, *.vaj, *.vam -Recurse -Force | Foreach-Object {
-        $tmp = @{FullName=($_.FullName); FileSize=$_.length}
+Get-ChildItem -Path ($vamRoot + 'Saves' ) -File -Include *.json -Recurse -Force | Foreach-Object {
+        $tmp = @{FullName=$_.FullName; FileSize=$_.length}
         $arrInstructionFiles += $tmp # $_.FullName
         $InstructionFileCount = $InstructionFileCount + 1
 }
 
+Write-Host
 Write-Host ...Found: $InstructionFileCount instruction files.
 
 Write-Host
@@ -76,21 +68,21 @@ Write-Host ---Comparing instructions for potential duplicates....
 Write-Host
 
 
-# Compare to find duplicates
+# Compare instruction files names/size to identify duplicates & report/move them
 
-$FoundDups = 0
-$arrMovedFullNames = @()
+$FoundDups         = 0
+$arrMovedFiles     = @() 
+
 $arrInstructionFiles | ForEach-Object {
 
         $FullName1   = $_.FullName
 
-        If($arrMovedFullNames -contains $FullName1){Return}
+        If($arrMovedFiles -contains $FullName1){Return} # file has already been moved
         
         $arrDupFiles = @()
         $FileSize1   = $_.FileSize
         $Path1       = $FullName1.substring(0, $FullName1.lastindexof("\") + 1)
         $FileName1   = $FullName1.Replace($Path1, "")
-
 
         Write-Host ---Check for dups: $FullName1 
 
@@ -98,54 +90,65 @@ $arrInstructionFiles | ForEach-Object {
         ForEach($Exception in $Exceptions){ If($_.FullName.Replace("\","/") -ilike ("*" + $Exception + "*" )) { Return } }
 
         # Identify duplicates based on Name and Size
-        $arrDupFiles = $arrInstructionFiles | Where-Object{ $_.FullName -ilike ("*" + $FileName1) -and $_.FileSize -match ($FileSize1) }
+        $arrDupFiles = $arrInstructionFiles | Where-Object{ $_.FullName.Replace("[","").Replace("]","").Replace("(","").Replace(")","") -imatch $FileName1.Replace("[","").Replace("]","").Replace("(","").Replace(")","") -and $_.FileSize -imatch $FileSize1 }
+        #$arrDupFiles = $arrInstructionFiles | Where-Object{ $_.FullName -ilike ("*" + $FileName1) -and $_.FileSize -imatch $FileSize1 }
+          
+        $arrDupFiles | ForEach-Object {
 
-        If($arrDupFiles.Count -ge 2){
-
-            $arrDupFiles | ForEach-Object {
+            If($FullName1 -ne $_.FullName){ # files have to be unalike somehow
 
                 $FullName2   = $_.FullName                                              # e.g.  C:\VAM\Saves\scene\ballerdev\ballerdev_ballerfile.json
-                $Path2       = $FullName2.substring(0, $FullName2.lastindexof("\") )    # e.g.  C:\VAM\Saves\scene\ballerdev
+                $Path2       = $FullName2.substring(0, $FullName2.lastindexof("\") + 1) # e.g.  C:\VAM\Saves\scene\ballerdev
                 $FileName2   = $FullName2.Replace($Path2, "")                           # e.g.  \ballerdev_ballerfile.json
                 $FileBase2   = $FileName2.substring(0, $FileName2.lastindexof(".") )    # e.g.  \ballerdev_ballerfile
                 $Moved       = $false
- 
-                If( $FullName1 -eq $FullName2 ){} 
-                Else{
+                
+                #Write-Host ---Potential DUP::: FN1: $FullName1 FN2: $FullName2
+                #Write-Host ---Potential DUP::: FN1: $FileName1 FN2: $FileName2
+
+                If( $FileName1 -eq $FileName2) { # filter out partial name matches like 1.vam and 21.vam
                     
-                    # Report dup
-                    """"+ $FileName1 +""""+","+""""+ $Path1 +""""+","+""""+ $FullName2 +"""" +","+""""+ $Moved +"""" | Out-File -FilePath $DupReportCSVpath -Append
-                    $FoundDups = $FoundDups + 1
+                    Write-Host
+                    Write-Host --- DUP FOUND: $FullName2 ::: Moving: $blnMoveDups  
+                    Write-Host
 
-                    # Optional: move dup
-                    If( ($FullName2 -ilike "*aMisc*" -or $blnMoveDups -eq $true)  ){
+                    If( $FullName1 -ilike "*\aMisc\*" ){$TargetPath = $Path1}                  
+                    Else{$TargetPath = $Path2}
 
-                        $Moved = $true
-                        Get-ChildItem -Path $Path2 -File -Force | Where-Object { $_.Name -ilike ($FileBase2 + "*") } | Foreach-Object{ 
-                            
-                            # Write-host FOUND DUP:: $Path2 :: FB2:: $FileBase2 ::: FN :: $_.FullName
+                    Get-ChildItem -Path $TargetPath -File -Force | Where-Object { $_.Name.Replace("[","").Replace("]","").Replace("(","").Replace(")","") -ilike ($FileBase2.Replace("[","").Replace("]","").Replace("(","").Replace(")","") + ".*") } | Foreach-Object{    
+                                
+                        #Write-Host ---Dup: $_.FullName                          
+
+                        If( $blnMoveDups -eq $true ){
+                     
+                            $Error.Clear()  
+
                             $_ | Move-Item -Destination ($RecycleBin) -Force -ErrorAction SilentlyContinue
-                            $arrMovedFullNames += $FullName2 
-                                               
+                            If($Error[0] -notmatch "because it does not exist."){ $MovedFilesCount = $MovedFilesCount + 1 }
+                            $arrMovedFiles += $_.FullName
                         }
-                        
-                    } # if MoveDups = true
 
-                } # Else
+                        # Report dup
+                        """"+ $_.Name +""""+","+""""+ $Path1 +""""+","+""""+ $_.FullName +"""" +","+""""+ $Moved +"""" | Out-File -FilePath $DupReportCSVpath -Append
+                        $FoundDups = $FoundDups + 1                
+
+                    } # Get-Children Path2
+                        
+                } # ElseIf FN = FN
 
             } # For each Dup found
 
-       }  # If Dups found
+        } # if dup names are not equal
 
 } # ForEach VAR in arrVARs
 
 
 Write-Host
 Write-Host Found: $FoundDups duplicate files.
-Write-Host Moved: $arrMovedFullNames.Count duplicate files.
+Write-Host Moved: $arrMovedFiles.Count  duplicate files. Note: Only 1 instance will be found in the Recycle Bin but all instances will be logged.
 
     Write-Host
     Write-host ******************** END: $ScriptName  ************************
     Write-Host
 
-Read-Host -Prompt '(hit ENTER to continue)'
+    If($blnLaunched -ne $true){ Read-Host -Prompt "Press Enter to exit" }

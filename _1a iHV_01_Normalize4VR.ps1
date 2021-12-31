@@ -238,12 +238,12 @@ Function Update-InstructionFile {
                                 $Instructions = $Instructions -ireplace [regex]::Escape($Line), ($NewLine)
                             } # ElseIf Idiot path
                         }
-                        ElseIf( $FullPath -ilike "*/texture*" -and $blnNormalizeTextures -eq $true ){ $Instructions = $Instructions -ireplace [regex]::Escape(($FullPath + $FileName)), ("Custom/Atom/Person/Textures/iHV_Normalized/" + $FileName) }
+                        ElseIf( $FullPath -ilike "*/texture*/*" -and $blnNormalizeTextures -eq $true ){ $Instructions = $Instructions -ireplace [regex]::Escape(($FullPath + $FileName)), ("Custom/Atom/Person/Textures/iHV_Normalized/" + $FileName) }
                         
                         # consider special cases before swapping out idio paths for conventional paths
                         
                         ElseIf( $FullPath -ilike "./*" ){ $Instructions = $Instructions -ireplace [regex]::Escape($FullPath), "" }
-                        ElseIf( $FullPath -ilike "*/Saves*" ){} # don't do anything further: escape
+                        ElseIf( $FullPath -ilike "*/Saves*" ){} # don't do anything further
                         ElseIf( $FullPath -ilike "*iHV_Normalized*" ){} # duplicate idio instance that's already been fixed; don't do anything further: escape
                         
                         # consider idio cases for conventional paths
@@ -460,8 +460,9 @@ Function Update-InstructionFile {
             If($Instructions -ilike "*/Custom/*"){$LogEntry + " ERROR: VAR prefix. Search for /Custom" + ", FILE:" + $File_FullName | Out-File -FilePath $LogPath -Append}
 
             # write-host --Writing $File_FullName :: $Instructions.Length
-            try{ [System.IO.File]::WriteAllLines($File_FullName, $Instructions) }
-            catch{$LogEntry + " " + $_ + ", FILE:" + $File_FullName | Out-File -FilePath $LogPath -Append}
+            $Error.Clear()
+            [System.IO.File]::WriteAllLines($File_FullName, $Instructions)
+            If($Error.Count -ne 0){$LogEntry + " ERROR: " + $Error[0] + ", FILE:" + $File_FullName | Out-File -FilePath $LogPath -Append}
         
         }
 
@@ -485,7 +486,7 @@ $VoicePitch            = "1.25" # raise the pitch of female character voices by 
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") } # don't use .\ for the root path for this script: it's kills path parsing above
 
 $ScriptName            = "iHV_Normalize4VR"
-$ScriptVersion         = "1.0.0"
+$ScriptVersion         = "1.0.1"
 $LogPath               = ($PSScriptRoot + "\_1a " + $ScriptName + ".log")
 $LogEntry              = Get-Date -Format "yyyy/MM/dd HH:mm" 
 
@@ -617,9 +618,8 @@ $NativeCustomFolders = @(
 )
 # PERSONAL EXCEPTIONS - not part of the base build but ignore these anyway (format: keywords, no file extenstions)
 $Exceptions = @(
-    "aBackup" # optional: have any content you don't want to normalize or change?
     "assetName" # Required: assetName is a JSON node that we don't want to update by mistake when updating asset paths
-    "BobB" # optional: my author name - change to yours
+    "BobB_" # optional: my author name - change to yours
     "2021_clothes_pack_by_Daz" # optional: clothing author who does not use unique file names
     "Custom/Assets/Audio/RT_LipSync" # required for lip sync plugin RT_LipSync
     "Custom/Scripts" # Required: scripts have embedded paths that would be disrupted by iHV
@@ -785,7 +785,7 @@ $arrBigFiles | Where-Object { $_ -inotlike "*Unity*" -and $_ -inotlike "*VaM*.ex
     Write-Host
 
 
-
+    If($blnLaunched -ne $true){ Read-Host -Prompt "Press Enter to exit" }
 
 <#
 

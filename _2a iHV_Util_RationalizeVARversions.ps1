@@ -9,12 +9,12 @@ Write-Host
 
 $blnMoveFiles           = $true  # set to false for testing 
 $blnCheckArchives       = $true  # Check Zips RARs & 7zs - slows this down by 66%
-$blnFixNames            = $false # Remove anything that's in () from file names; remove .orig extensions; set to true only if extracting content from VARs later, or you may create access issues in game.
+$blnFixNames            = $true  # Remove anything that's in () from file names; remove .orig extensions; set to true only if extracting content from VARs later, or you may create access issues in game.
 
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") }
 
 $ScriptName             = "iHV_Util_RationalizeVARs"
-$ScriptVersion          = "1.0.1"
+$ScriptVersion          = "1.0.2"
 $LogPath                = ".\_2a " + $ScriptName + ".log"
 $LogEntry               = Get-Date -Format "yyyy/MM/dd HH:mm" 
 
@@ -121,7 +121,10 @@ If($blnFixNames -eq $true){
 
     } # for each found with Copy
 
-    # Remove []
+    <# Remove []
+
+    Tabled: this change would orphan the .VAR file if the player isn't normalizing.
+
     Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { ($_.Name -match "\[" -and $_.Name -match "\]") -and $_.FullName -inotlike ("*" + $RecycleBin + "*") } | Foreach-Object {
        
         $NewName = $_.Name.Replace("[", "")
@@ -144,6 +147,7 @@ If($blnFixNames -eq $true){
         }
     
     } # Remove []
+    #>
 
 } # if fix names
 

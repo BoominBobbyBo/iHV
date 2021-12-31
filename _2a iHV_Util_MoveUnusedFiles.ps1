@@ -24,8 +24,10 @@ Write-Host
 Write-host ******************** START: iHV MOVE UNUSED RESOURCE FILES ************************
 Write-Host
 
-Read-Host -Prompt 'You must run either RemoveVARpaths.ps1 or NormalizeVAM4VR.ps1 first (hit ENTER to continue)'
-Read-Host -Prompt 'No. Really. All morphs, hair, and clothes will be moved if you dont run RemoveVARpaths.p1 or Ns.ps1 first (hit ENTER to continue)'
+If($blnLaunched -ne $true){ 
+    Read-Host -Prompt 'You must run either RemoveVARpaths.ps1 or NormalizeVAM4VR.ps1 first (hit ENTER to continue)' 
+    Read-Host -Prompt 'No. Really. All morphs, hair, and clothes will be moved if you dont run RemoveVARpaths.p1 or Ns.ps1 first (hit ENTER to continue)'
+}
 
     ###################### SCRIPT TUNING ###################### 
 
@@ -47,7 +49,7 @@ $blnMoveClothing     = $false    # set to false to block action but still produc
 $blnMoveTextures     = $false    # set to false to block action but still produce a log/report
 $blnMoveAudio        = $false    # set to false to block action but still produce a log/report
 
-$RecycleBin          = ($vamRoot + '_2a iHV_RecycleBin')
+$RecycleBin          = ($vamRoot + '_2a iHV_UnusedRecycleBin')
 $LinksCSVpath        = ($RecycleBin + '\_2a iHV_InstructionLinks.csv')
 $MoveReportCSVpath   = ($RecycleBin + '\_2a iHV_MoveReport.csv')
 
@@ -139,9 +141,7 @@ Write-Host ...Loaded: $LinksCSV.Count resource links
 
 $arrResourceFiles = @()
 $InstructionsDirs | ForEach-Object {
-
-    Get-ChildItem -Path ($vamRoot + $_)  -File -Include *.vmi, *.vam, *.jpg, *.png, *.mp3, *.wav, *.ogg -Recurse -Force -ErrorAction SilentlyContinue | Where-Object {$_ -inotlike ('*' + $RecycleBin +'*')} | Foreach-Object { $arrResourceFiles += $_.FullName }
-
+    Get-ChildItem -Path ($vamRoot + $_) -File -Include *.vmi, *.vam, *.jpg, *.png, *.mp3, *.wav, *.ogg -Recurse -Force -ErrorAction SilentlyContinue | Where-Object {$_ -inotlike ('*' + $RecycleBin +'*')} | Foreach-Object { $arrResourceFiles += $_.FullName }
 }
 
 Write-Host ...Found: $arrResourceFiles.Count Custom and Saves files.
@@ -158,13 +158,15 @@ Write-Host
 Write-Host ---Comparing instructions against actual files found....
 Write-Host
 
-$UnusedFileCount = 0
+$arrMovedFiles     = @()
 $arrResourceFiles | ForEach-Object {
 
     # For each resource file
 
     $File_FullPath     = $_ # Sample: C:\VAM\Custom\Sounds\boomboom.mp3
     $File_VAMpath      = [regex]::Escape( $File_FullPath.Replace($vamRoot,'').Replace('\','/') ) # sample: Custom/Sounds/boomboom.mp3
+
+    If($arrMovedFiles -icontains $File_FullPath){Return} # file has already been moved
 
     # Find resource file in the instructions path
 
@@ -186,7 +188,7 @@ $arrResourceFiles | ForEach-Object {
 
             $Path = $File_FullPath.substring( 0, $File_FullPath.LastIndexOf("\") )
 
-            Get-ChildItem -Path $Path -File -Include *.vam, *.vab, *.vaj, *.vap, *.jpg, *.png -Recurse -Force -ErrorAction SilentlyContinue | Where-Object {$_ -ilike ( $File_FullPath.Replace(".vam", "") + "*" )} | Foreach-Object {
+            Get-ChildItem -Path $Path -File -Include *.vam, *.vab, *.vaj, *.vap, *.jpg, *.png -Recurse -Force -ErrorAction SilentlyContinue | Where-Object {$_ -ilike ( $File_FullPath.Replace(".vam", ".") + "*" )} | Foreach-Object {
 
                 write-host ---Orphaned $type : $_
                 """"+$type+""""+','+""""+ $_ +"""" | Out-File -FilePath $MoveReportCSVpath -Append
@@ -195,9 +197,9 @@ $arrResourceFiles | ForEach-Object {
 
                     $Error.Clear()
 
-                    $_ | Move-Item -Destination ($RecycleBin + "\" + $type) -Force -ErrorAction SilentlyContinue
-                    If($Error[0] -notmatch "because it does not exist."){ $UnusedFileCount = $UnusedFileCount + 1 }
-               
+                    If($blnMoveMorphs -eq $true){ $_ | Move-Item -Destination ($RecycleBin + "\" + $type) -Force -ErrorAction SilentlyContinue}
+                    If($Error[0] -notmatch "because it does not exist."){ $arrMovedFiles += $_.FullName }
+
                 } # If( ($blnMoveHair -eq $true -and $File_FullPath -ilike '*\hair\*')
 
             } # get child items 
@@ -220,7 +222,7 @@ $arrResourceFiles | ForEach-Object {
             If($blnMoveMorphs -eq $true){ $File_FullPath | Move-Item -Destination ($RecycleBin + "\" + $type) -Force -ErrorAction SilentlyContinue }
             If($Error[0] -notmatch "because it does not exist."){ 
                     """"+$type+""""+','+""""+ $File_FullPath +"""" | Out-File -FilePath $MoveReportCSVpath -Append
-                    $UnusedFileCount = $UnusedFileCount + 1
+                    $arrMovedFiles += $_.FullName
             }
 
             $Error.Clear()
@@ -228,7 +230,7 @@ $arrResourceFiles | ForEach-Object {
             If($blnMoveMorphs -eq $true){ $vmb | Move-Item -Destination ($RecycleBin + "\" + $type) -Force -ErrorAction SilentlyContinue }
             If($Error[0] -notmatch "because it does not exist."){ 
                     """"+$type+""""+','+""""+ $vmb +"""" | Out-File -FilePath $MoveReportCSVpath -Append
-                    $UnusedFileCount = $UnusedFileCount + 1
+                    $arrMovedFiles += $_.FullName
             }
 
             $Error.Clear()
@@ -236,7 +238,7 @@ $arrResourceFiles | ForEach-Object {
             If($blnMoveMorphs -eq $true){ $jpg | Move-Item -Destination ($RecycleBin + "\" + $type) -Force -ErrorAction SilentlyContinue }
             If($Error[0] -notmatch "because it does not exist."){ 
                     """"+$type+""""+','+""""+ $jpg +"""" | Out-File -FilePath $MoveReportCSVpath -Append
-                    $UnusedFileCount = $UnusedFileCount + 1
+                    $arrMovedFiles += $_.FullName
             }
 
                 $Error.Clear()
@@ -244,36 +246,35 @@ $arrResourceFiles | ForEach-Object {
             If($blnMoveMorphs -eq $true){ $png | Move-Item -Destination ($RecycleBin + "\" + $type) -Force -ErrorAction SilentlyContinue }
             If($Error[0] -notmatch "because it does not exist."){ 
                     """"+$type+""""+','+""""+ $png +"""" | Out-File -FilePath $MoveReportCSVpath -Append
-                    $UnusedFileCount = $UnusedFileCount + 1
+                    $arrMovedFiles += $_.FullName
             }
         
         } # If vmi
 
         ElseIf($File_VAMpath -imatch '.jpg' -or $_.Link_RelPath -imatch '.png'){ 
 
-            # Is it a thumbnail?
-            
-            # Search for similar file names with alternate extensions $vmb = $File_FullPath -iReplace('.vmi', '.vmb')
+            # Is it a thumbnail?            
+            # Search for similar file names with alternate extensions
 
-            $BasePath = $File_FullPath.ToString()
-            $BasePath = $BasePath.Substring( 0, $BasePath.LastIndexOf("\") + 1 )
-            $FileName = $File_FullPath.ToString().Replace($BasePath,"")
-            $BaseFileName = $FileName.substring( 0, $FileName.LastIndexOf(".") )
-            # write-host FN:: $FileName BP:: $BasePath BFN:: $BaseFileName
+            $BasePath     = $File_FullPath.ToString()
+            $BasePath     = $BasePath.Substring( 0, $BasePath.LastIndexOf("\") + 1 )
+            $FileName     = $File_FullPath.ToString().Replace($BasePath,"")
+            $BaseFileName = $FileName.substring( 0, $FileName.LastIndexOf(".") + 1 )
+            # write-host  BP:: $BasePath BFN:: $BaseFileName FN:: $FileName
 
-            $SimilarFiles = Get-ChildItem -Path ($BasePath) -File -Force | Where-Object {$_.Name -like ($BaseFileName + "*") -and $_.Name -ne $FileName}
+            $Error.Clear()
+            $SimilarFiles = Get-ChildItem -Path ($BasePath) -File -Force | Where-Object {$_.Name -ilike ($BaseFileName + "*") -and $_.Name -ne $FileName} 
             # write-host SF:: $SimilarFiles.Count
 
-            If($SimilarFiles.Count -eq 0){
+            If($Error.Count -eq 0 -and $SimilarFiles.Count -eq 0){ 
                             
                 Write-Host ---Orphaned image: $File_FullPath
                 """"+'Image'+""""+','+""""+$File_FullPath+"""" | Out-File -FilePath $MoveReportCSVpath -Append
-                $UnusedFileCount = $UnusedFileCount + 1
                 
                 If($blnMoveTextures -eq $true){ ($File_FullPath) | Move-Item -Destination ($RecycleBin + "\Images")  -Force -ErrorAction SilentlyContinue }
                 If($Error[0] -notmatch "because it does not exist."){ 
-                      """"+"Image"+""""+','+""""+ $png +"""" | Out-File -FilePath $MoveReportCSVpath -Append
-                        $UnusedFileCount = $UnusedFileCount + 1
+                    """"+"Image"+""""+','+""""+ $png +"""" | Out-File -FilePath $MoveReportCSVpath -Append
+                    $arrMovedFiles += $_.FullName
                 }
                                
             }
@@ -291,7 +292,7 @@ $arrResourceFiles | ForEach-Object {
             If($blnMoveAudio -eq $true){ $File_FullPath | Move-Item -Destination ($RecycleBin + "\" + $type) -Force -ErrorAction SilentlyContinue }
             If($Error[0] -notmatch "because it does not exist."){ 
                     """"+$type+""""+','+""""+ $File_FullPath +"""" | Out-File -FilePath $MoveReportCSVpath -Append
-                    $UnusedFileCount = $UnusedFileCount + 1
+                    $arrMovedFiles += $_.FullName
             }
 
         } # If Audio
@@ -314,10 +315,10 @@ $arrResourceFiles | ForEach-Object {
 
 } # for each ResourceFile
 
-Write-Host Found: $UnusedFileCount unused files.
+Write-Host Found: $arrMovedFiles.Count unused files.
 
     Write-Host
     Write-host ******************** END: $ScriptName  ************************
     Write-Host
 
-Read-Host -Prompt '(hit ENTER to continue)'
+    If($blnLaunched -ne $true){ Read-Host -Prompt "Press Enter to exit" }
