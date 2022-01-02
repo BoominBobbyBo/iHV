@@ -17,10 +17,10 @@ Write-Host
 
     ###################### SCRIPT TUNING ###################### 
 
-$blnMoveFiles           = $true  # set to false for testing 
-$blnCheckArchives       = $true  # Check Zips RARs & 7zs - slows this down by 66%
-$blnFixNames            = $false # Remove anything that's in () from file names; remove .orig extensions; set to true only if extracting content from VARs later, or you may create access issues in game.
-$blnExportAssets        = $false # Normalize assets among VAR files by exporting them into a single Assets folder and thus deduping
+$blnMoveFiles           = $true   # set to false for testing 
+$blnCheckArchives       = $true   # Check Zips RARs & 7zs - slows this down by 66%
+$blnFixNames            = $false  # Remove anything that's in () from file names; remove .orig extensions; set to true only if extracting content from VARs later, or you may create access issues in game.
+$blnExportAssets        = $false  # Normalize assets among VAR files by exporting them into a single Assets folder and thus deduping
 
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") }
 
@@ -225,7 +225,7 @@ If($blnCheckArchives -eq $true){
 }
 
 
-#
+# Optional: remove assets from VAR files
 #
 
 If($blnExportAssets -eq $true){
@@ -234,7 +234,6 @@ If($blnExportAssets -eq $true){
 
     $arrVARs | ForEach-Object {
 
-        #$Var = [System.IO.Compression.ZipFile]::OpenRead($_.FullName)
         $Var = [System.IO.Compression.ZipFile]::Open($_.FullName,'Update')
 
         $Var.Entries | Where-Object { $_.Name -ilike "*.assetbundle" } | ForEach-Object { 
@@ -242,7 +241,8 @@ If($blnExportAssets -eq $true){
             [System.IO.Compression.ZipFileExtensions]::ExtractToFile($_, ($vamRoot + "Assets\" + $_.Name), $true)
         }
 
-        ($Var.Entries | Where {$_.Name -ilike "*.assetbundle"}).Delete()
+        $Asset = $Var.Entries | Where {$_.Name -ilike "*.assetbundle"}
+        If($Asset -ne $null){ $Asset.Delete() }
 
         $Var.Dispose()        
 
