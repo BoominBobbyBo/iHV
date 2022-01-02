@@ -1,5 +1,15 @@
-# I Hate VARS - Rationalize VARs
-#    - Rationalize set of VARs by version: i.e. move lessor versions off into a subfolder
+<#
+
+    I Hate VARS - Rationalize VARs
+        - Rationalize set of VARs by version: i.e. move lessor versions off into a subfolder
+    
+    Optional:
+        - Auto moving files is optional
+        - Include archive files in the rationalization
+        - Fix common file name issues
+        - Remove assets to reduce file sizes and to de dup (super, duper processor intensive: pack a lunch)
+
+#>
 
 Write-Host
 Write-host ******************** START: iHV RATIONALIZE VARS ************************
@@ -9,12 +19,13 @@ Write-Host
 
 $blnMoveFiles           = $true  # set to false for testing 
 $blnCheckArchives       = $true  # Check Zips RARs & 7zs - slows this down by 66%
-$blnFixNames            = $true  # Remove anything that's in () from file names; remove .orig extensions; set to true only if extracting content from VARs later, or you may create access issues in game.
+$blnFixNames            = $false # Remove anything that's in () from file names; remove .orig extensions; set to true only if extracting content from VARs later, or you may create access issues in game.
+$blnExportAssets        = $false # Normalize assets among VAR files by exporting them into a single Assets folder and thus deduping
 
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") }
 
 $ScriptName             = "iHV_Util_RationalizeVARs"
-$ScriptVersion          = "1.0.2"
+$ScriptVersion          = "1.0.3"
 $LogPath                = ".\_2a " + $ScriptName + ".log"
 $LogEntry               = Get-Date -Format "yyyy/MM/dd HH:mm" 
 
@@ -212,6 +223,33 @@ If($blnCheckArchives -eq $true){
 
     Write-host ---Found $arrArchives.Count Archive files
 }
+
+
+#
+#
+
+If($blnExportAssets -eq $true){
+
+    Add-Type -Assembly 'System.IO.Compression.FileSystem'
+
+    $arrVARs | ForEach-Object {
+
+        #$Var = [System.IO.Compression.ZipFile]::OpenRead($_.FullName)
+        $Var = [System.IO.Compression.ZipFile]::Open($_.FullName,'Update')
+
+        $Var.Entries | Where-Object { $_.Name -ilike "*.assetbundle" } | ForEach-Object { 
+
+            [System.IO.Compression.ZipFileExtensions]::ExtractToFile($_, ($vamRoot + "Assets\" + $_.Name), $true)
+        }
+
+        ($Var.Entries | Where {$_.Name -ilike "*.assetbundle"}).Delete()
+
+        $Var.Dispose()        
+
+    } # $arrVARs | ForEach-Object {
+
+} # Normalize Assets
+
 
 
 # For each VAR found, compare it's version to other files with the same name
