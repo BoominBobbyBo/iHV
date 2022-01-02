@@ -37,6 +37,7 @@ $RatVarReportCSVpath    = ($RecycleBin + '\_iHV_RationalizedVarReport.csv')
 
 
 MD ($RecycleBin + "\") -ErrorAction SilentlyContinue
+If($blnExportAssets  -eq $true){MD ($vamRoot + "Assets") -ErrorAction SilentlyContinue}
 $arrVARs = @()
 $arrArchives = @()
 $FilesMovedCount = 0
