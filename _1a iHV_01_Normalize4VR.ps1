@@ -91,7 +91,8 @@ Function Normalize-ResourceDir {
 
                 # Idiot cases
 
-                ElseIf($TargetPath -ilike "*Custom/*"){
+                # for idiot folders, there is a discerned TargetPath (otherwise the variable is null)
+                ElseIf($TargetPath -ilike "*Custom\*"){
                     $LogEntry + ".....Move Idiot: " + $_.FullName + " to " + ($vamRoot + $TargetPath.Replace("/","\")) | Out-File -FilePath $LogPath -Append
                     $_ | Move-Item -Destination ($vamRoot + $TargetPath.Replace("/","\")) -ErrorAction SilentlyContinue
                 }
@@ -101,9 +102,11 @@ Function Normalize-ResourceDir {
                     $_ | Move-Item -Destination ($vamRoot + "Custom\Atom\Person\Textures\iHV_Normalized\") -Force -ErrorAction SilentlyContinue
                 } 
 
+
                 # Conventional cases
 
-                ElseIf( $ResourceFullName -ilike "*\Saves\*"){ Return }
+                ElseIf( $ResourceFullName -ilike "*\Saves\*"){ Return } # only move above known file types out of Saves
+
                 Else{
                     # write-host ".....Move efile: " $_.FullName " to " ($vamRoot + $ResourceDir + "iHV_Normalized\") 
                     $LogEntry + ".....Move efile: " + $_.FullName + " to " + ($vamRoot + $ResourceDir + "iHV_Normalized\") | Out-File -FilePath $LogPath -Append
@@ -139,13 +142,16 @@ Function Update-InstructionFile {
         #-----------------------------------------------------------------------------> 
 
         # Global Change: SELF
-        If($Instructions -match "SELF:/"){$blnWasTheFileChanged = $true}
-        $Instructions = $Instructions -Replace("SELF:/","")
+        If($Instructions -match "SELF:/"){
+            $blnWasTheFileChanged = $true
+            $Instructions = $Instructions -Replace("SELF:/","")
+        }
+        
        
         # IDIO PATHS
         # Update $Instructions\resource paths by a) establishing what the path is and b) replacing it with a normalized one
 
-        $Instructions | Where-Object {$_ -match "/"} | ForEach-Object { 
+        $Instructions | Where-Object {$_.indexOf(":") -ge 3 -and $_.lastIndexOf(".") -In ($_.Length - 14)..($_.Length -5)} | ForEach-Object { # this is all about files paths.
 
             $Line = ""
             $Line = $_ #.ToLower() # line from the file being read-in
@@ -157,9 +163,11 @@ Function Update-InstructionFile {
             $NodeName  = ""
             $NodeValue = ""
             $RemoveMe  = ""
+
+            # break the line down to Name and Value pairs
             $NodeName  = $Line.Substring(0, $Line.indexOf(":") + 3 ).Trim()
 
-            If($NodeName.Length -gt 0){
+            If($NodeName.Length -gt 0){ 
 
                 $NodeValue = $Line.Replace($NodeName,"")
                 $NodeValue = $NodeValue.Trim().Trim(",").Trim("""") 
@@ -170,7 +178,7 @@ Function Update-InstructionFile {
 
                     #write-host PresetName found:::::$Line
 
-                    If($NodeValue.indexOf(":") -gt 0){
+                    If($NodeValue.indexOf(":") -ge 0){
                         $blnWasTheFileChanged = $true 
                     
                         $RemoveMe = $NodeValue.substring( 0, $NodeValue.indexOf(":") + 1 )
@@ -179,7 +187,7 @@ Function Update-InstructionFile {
                 } 
                 
                 # Remove VAR prefixes from general JSON paths
-                if($NodeValue -ilike "*:/*"){
+                Elseif($NodeValue -ilike "*:/*"){
                     $blnWasTheFileChanged = $true
 
                     $StartIndex = 1                     
@@ -198,27 +206,28 @@ Function Update-InstructionFile {
             # ---------------------------> Update to normalized Paths
 
                 $ExceptionFound = $false
-                $Exceptions | ForEach-Object{ If( $Line -imatch $_ ){ $ExceptionFound = $true } }
+                $Exceptions | ForEach-Object{ If( $Line -ilike ("*"+$_+"*") ){ $ExceptionFound = $true } }
                 If($Line -ilike "*Custom/Atom/*" -And $Line -inotlike "*Custom/Atom/Person/*"){$ExceptionFound = $true} # For Custom/Atom: Only process Custom/Atom/Person/
 
                 
                 $IsIdiotPath = $false
                 $IdiotPaths | ForEach-Object { If( $Line -imatch ($_.IdiotPath.Trim("/") ) ) { $IsIdiotPath = $true } }
 
+
                 If($ExceptionFound -eq $false -and ( $Line.indexof("./") -ge 0 -or $Line.indexof("Custom/") -ge 0 -Or $IsIdiotPath -eq $true ) ){
 
-                    $NodeName = ""
+                    $NodeName  = ""
                     $NodeValue = ""
                     $LastSlash = 0
-                    $FileName = ""
-                    $FullPath = ""
+                    $FileName  = ""
+                    $FullPath  = ""
 
-                    $NodeName = $Line.Substring(0, $Line.indexOf(":") + 3 ).Trim()
+                    $NodeName  = $Line.Substring(0, $Line.indexOf(":") + 3 ).Trim()
                     $NodeValue = $Line.Replace($NodeName,"").Trim().Trim(",").Trim("""") 
                     $LastSlash = $NodeValue.lastindexof("/")
 
-                    $FullPath = ($NodeValue.Substring( 0, $LastSlash ).Trim() + "/")
-                    $FileName = $NodeValue.Replace($FullPath,"")
+                    $FullPath  = ($NodeValue.Substring( 0, $LastSlash ).Trim() + "/")
+                    $FileName  = $NodeValue.Replace($FullPath,"")
                     
                     # Write-Host -------FN:$FileName::::BP:$BasePath
                     If($FileName.Length -ge 5){
@@ -632,13 +641,10 @@ $Exceptions = @(
     "a iHV_" # iHV scripts & log files
     "Jackaroo" # optional: clothing author who does not use unique file names
     "myFav" # Required: folders/files prefix that identifies content exempt from normalizing by this script, so to establish a personal folder organization scheme
-    "NoStage" # optional: hair author
-    "PostMagic" # optional: Let it ride and fail. I delete this since it's not VR friendly
     "Putz" # optional: clothing author who does not use unique file names
     "RT_LipSync" # Required by this plugin; creates protected space within Custom/audio/rt_lipsync for a curated audio library specific for this script
     "receiverAtom" # Required: json node that we don't want to update by mistake when adjusting paths
     "stringChooserValue" # Required: unity asset path
-    "VamChan" # optional: favorite hair author
     "VamTextures" # optional: Male gen textures from Jackaroo
     "VRDollz" # optional: clothing author who does not use unique file names
 
@@ -720,15 +726,8 @@ $IdiotPaths | ForEach-Object{
 
     If($_ -eq $null){Return}
 
-    # Build a source and target paths
-    $IdiotDir = ($vamRoot + ($_.IdiotPath -Replace("/","\") ) )
-    $TargetDir = ($vamRoot + ($_.TargetPath -Replace("/","\") ) )
-
-    #Write-Host ----IdiotPath: $IdiotDir TargetDir: $TargetDir
-    #$LogEntry + "----IdiotDir:" + $IdiotDir + " TargetDir: " + $TargetDir | Out-File -FilePath $LogPath -Append
-
     #Write-Host $ScriptName--NMLZ IDIOT: $_.IdiotPath
-    If($Normalize -eq $true){ Normalize-ResourceDir ($_.IdiotPath) ($_.TargetPath) }
+    If($Normalize -eq $true){ Normalize-ResourceDir ($_.IdiotPath.Replace("/","\")) ($_.TargetPath.Replace("/","\")) }
     [GC]::Collect()
 
 } # $IdiotPaths | ForEach-Object{ 
@@ -791,5 +790,19 @@ $arrBigFiles | Where-Object { $_ -inotlike "*Unity*" -and $_ -inotlike "*VaM*.ex
 
 bugs:
 
+               "id" : "URLAudioClipManager", 
+               "clips" : [ 
+                  { 
+                     "url" : "Custom/Scripts/VAMDeluxe/Dollmaster/Assets/SFX/Slurp02.wav", 
+                     "displayName" : "Slurp02.wav"
+                  }, 
+
+
+                turned into:
+
+                C:\Users\BigD\Downloads\Staging\Custom\Sounds\iHV_Normalized\02.wav
+
+
+                this should not have flipped: scripts are exceptions
 
 #>
