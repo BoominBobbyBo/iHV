@@ -1,9 +1,13 @@
-<# I Hate VARS - Move Unused Resource Files
+<# I Hate VARS - Restore Unused Resource Files
 
     1. Read in the MoveReport
-    2. Every entry with an ( or an )
+    2. Every entry:
         - build a source var: get where it came from from the path
-        - move $ to the source dir
+        - copy $ back to the source dir 
+            (leave it in the Recycle Bin in case there are duplicate destinations)
+
+  Update the Where-object to chose which types of objects to restore
+    Morph | Audio | Hair | Clothing | Skin | Images
 
 #>
 
@@ -24,14 +28,6 @@ $ScriptVersion = '1.0.0'
 $LogPath = ($PSScriptRoot + '\_2a ' + $ScriptName + '.log')
 $LogEntry = Get-Date -Format 'yyyy/MM/dd HH:mm' 
 
-$blnBuildLinkLibrary = $true   # set to false to skip the process of scanning all instruction files and leverage a previous LinksCSV.csv build 
-                               # CAUTION: running as false witout a previous and currents LinksCSV.csv  will cause all morphs, hair and cloths to be moved
-
-$blnMoveMorphs = $true         # set to false to block action but still produce a log/report
-$blnMoveHair = $false          # set to false to block action but still produce a log/report
-$blnMoveClothing = $false      # set to false to block action but still produce a log/report
-$blnMoveTextures = $false       # set to false to block action but still produce a log/report
-
 $RecycleBin          = ($vamRoot + '_2a iHV_RecycleBin')
 $LinksCSVpath        = ($RecycleBin + '\_2a iHV_InstructionLinks.csv')
 $MoveReportCSVpath   = ($RecycleBin + '\_2a iHV_MoveReport.csv')
@@ -50,7 +46,7 @@ $MoveReportCSV = Import-CSV $MoveReportCSVpath | Get-Unique -AsString | Where-Ob
 
     Write-Host ---Move::: $FileName ::: to ::: $SourceDir 
 
-    ($RecycleBin + "\Morph\" + $FileName) | Move-Item -Destination $SourceDir
+    ($RecycleBin + "\Morph\" + $FileName) | Copy-Item -Destination $SourceDir
 
     $FilePathCount = $FilePathCount + 1
 

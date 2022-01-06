@@ -151,7 +151,7 @@ Function Update-InstructionFile {
         # IDIO PATHS
         # Update $Instructions\resource paths by a) establishing what the path is and b) replacing it with a normalized one
 
-        $Instructions | Where-Object {$_.indexOf(":") -ge 3 -and $_.lastIndexOf(".") -In ($_.Length - 14)..($_.Length -5)} | ForEach-Object { # this is all about files paths.
+        $Instructions | Where-Object {$_.indexOf(":") -ge 3 -and $_.lastIndexOf(".") -In ($_.Length - 14)..($_.Length -4)} | ForEach-Object { # this is all about files paths.
 
             $Line = ""
             $Line = $_ #.ToLower() # line from the file being read-in
@@ -174,7 +174,6 @@ Function Update-InstructionFile {
 
                 # Revmove VAR prefixes from JSON paths to Prefix resources     
                 If($NodeName.indexOf("presetName") -ge 0 ){
-                    $blnWasTheFileChanged = $true
 
                     #write-host PresetName found:::::$Line
 
@@ -214,7 +213,7 @@ Function Update-InstructionFile {
                 $IdiotPaths | ForEach-Object { If( $Line -imatch ($_.IdiotPath.Trim("/") ) ) { $IsIdiotPath = $true } }
 
 
-                If($ExceptionFound -eq $false -and ( $Line.indexof("./") -ge 0 -or $Line.indexof("Custom/") -ge 0 -Or $IsIdiotPath -eq $true ) ){
+                If($ExceptionFound -eq $false -and ( $Line.indexof("Custom/") -ge 0 -or $Line.indexof("./") -ge 0 -or $Line.indexof("Saves/") -ge 0 -Or $IsIdiotPath -eq $true ) ){
 
                     $NodeName  = ""
                     $NodeValue = ""
@@ -226,8 +225,15 @@ Function Update-InstructionFile {
                     $NodeValue = $Line.Replace($NodeName,"").Trim().Trim(",").Trim("""") 
                     $LastSlash = $NodeValue.lastindexof("/")
 
-                    $FullPath  = ($NodeValue.Substring( 0, $LastSlash ).Trim() + "/")
-                    $FileName  = $NodeValue.Replace($FullPath,"")
+                    If($LastSlash -ge 0){ 
+                        $FullPath  = ($NodeValue.Substring( 0, $LastSlash ).Trim() + "/") 
+                        $FileName  = $NodeValue.Replace($FullPath,"")
+                    }
+                    Else{ # no path, just a file
+                        $FullPath  = ""
+                        $FileName  = $NodeValue.Trim().Trim(".")
+                    }
+                   
                     
                     # Write-Host -------FN:$FileName::::BP:$BasePath
                     If($FileName.Length -ge 5){
@@ -241,13 +247,12 @@ Function Update-InstructionFile {
                         
                         # consider idiot cases before swapping out idio paths for conventional paths
                         
-                        ElseIf( $IsIdiotPath -eq $true){
-                            $IdiotPaths | ForEach-Object {
+                        ElseIf( $IsIdiotPath -eq $true){ $IdiotPaths | ForEach-Object {
                                 $NewLine = $Line -ireplace [regex]::Escape($FullPath), ($_.TargetPath)                               
                                 $Instructions = $Instructions -ireplace [regex]::Escape($Line), ($NewLine)
-                            } # ElseIf Idiot path
+                            } 
                         }
-                        ElseIf( $FullPath -ilike "*/texture*/*" -and $blnNormalizeTextures -eq $true ){ $Instructions = $Instructions -ireplace [regex]::Escape(($FullPath + $FileName)), ("Custom/Atom/Person/Textures/iHV_Normalized/" + $FileName) }
+                        ElseIf( $FullPath -ilike "*/texture*" -and $blnNormalizeTextures -eq $true ){ $Instructions = $Instructions -ireplace [regex]::Escape(($FullPath + $FileName)), ("Custom/Atom/Person/Textures/iHV_Normalized/" + $FileName) }
                         
                         # consider special cases before swapping out idio paths for conventional paths
                         
@@ -462,7 +467,8 @@ Function Update-InstructionFile {
             # write-host $ScriptName---UPDATE: $File_FullName
        
             #fix corruption that occurs when executing more than once on a file
-            $Instructions = $Instructions -iReplace("ustom/","Custom/") -iReplace("CCustom/","Custom/")
+            $Instructions = $Instructions -iReplace("ustom/","Custom/") 
+            $Instructions = $Instructions -iReplace("CCustom/","Custom/")
             $Instructions = $Instructions -Replace("//", "/")
             $LogEntry + "---writing Updates.  FILE:" + $File_FullName + " CL:" + $Instructions.Length | Out-File -FilePath $LogPath -Append
             
@@ -482,9 +488,9 @@ Function Update-InstructionFile {
 # > > > SCRIPT TUNING
 
 $blnNormalizeTextures  = $false # Normalize texture files into the parent texture folder. Will impact game quality but increase stability.
-$blnProcessRootFolders = $true # Processing root folders on mature installs is redundant, and a considerable waste of processing time
-$blnWatchForAllIdiots  = $true # Expand the Idiots array to known offenders. Keep on when dealing with new content. Turn off when processing mature installs.
-$Normalize             = $true # Normalize files into a single instance, where possible
+$blnProcessRootFolders = $true  # Processing root folders on mature installs is redundant, and a considerable waste of processing time
+$blnWatchForAllIdiots  = $true  # Expand the Idiots array to known offenders. Keep on when dealing with new content. Turn off when processing mature installs.
+$Normalize             = $true  # Normalize files into a single instance, where possible
 
 $blnVRprefs            = $true
 $WorldScale            = "1.20" # make the game content smaller by 20%
@@ -632,7 +638,6 @@ $Exceptions = @(
     "2021_clothes_pack_by_Daz" # optional: clothing author who does not use unique file names
     "Custom/Assets/Audio/RT_LipSync" # required for lip sync plugin RT_LipSync
     "Custom/Scripts" # Required: scripts have embedded paths that would be disrupted by iHV
-    "Custom/SubScene" # Required navtive folder with a small amount of idio content
     "E-Motion" # Required for this popular plugin
     "Electric Dreams" # optional: favorite clothing author
     "Energy85" # optional: clothing author who does not use unique file names
@@ -641,11 +646,13 @@ $Exceptions = @(
     "a iHV_" # iHV scripts & log files
     "Jackaroo" # optional: clothing author who does not use unique file names
     "myFav" # Required: folders/files prefix that identifies content exempt from normalizing by this script, so to establish a personal folder organization scheme
+    "NoStage" # optional: Haire author who does not use unique file names
     "Putz" # optional: clothing author who does not use unique file names
     "RT_LipSync" # Required by this plugin; creates protected space within Custom/audio/rt_lipsync for a curated audio library specific for this script
     "receiverAtom" # Required: json node that we don't want to update by mistake when adjusting paths
     "stringChooserValue" # Required: unity asset path
     "VamTextures" # optional: Male gen textures from Jackaroo
+    "VaMChan" # optional: Hair, scene author who does not use unique file names
     "VRDollz" # optional: clothing author who does not use unique file names
 
     # "./" # Relative path for scenes; if not excepted, this gets turned into a sound path regardless of the actual content
@@ -790,19 +797,7 @@ $arrBigFiles | Where-Object { $_ -inotlike "*Unity*" -and $_ -inotlike "*VaM*.ex
 
 bugs:
 
-               "id" : "URLAudioClipManager", 
-               "clips" : [ 
-                  { 
-                     "url" : "Custom/Scripts/VAMDeluxe/Dollmaster/Assets/SFX/Slurp02.wav", 
-                     "displayName" : "Slurp02.wav"
-                  }, 
 
 
-                turned into:
-
-                C:\Users\BigD\Downloads\Staging\Custom\Sounds\iHV_Normalized\02.wav
-
-
-                this should not have flipped: scripts are exceptions
 
 #>

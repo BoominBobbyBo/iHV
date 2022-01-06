@@ -37,7 +37,7 @@ Function Verify-ResourcesInInstructionsFile {
 
             # Write-Host "----NodeName: " $NodeName " Value: " $NodeValue
 
-            $TestFileFullName = ($vamRoot +"\"+ $NodeValue.Replace("/","\").Replace(".\","")).Trim()
+            $TestFileFullName = ($vamRoot + $NodeValue.Replace("/","\").Replace(".\","")).Trim()
 
             # Verify it's a testable path to ensure the qualification above wasn't satisfied by the NodeName
             If( ($TestFileFullName -ilike "*Custom\*" -or $TestFileFullName -ilike "*Saves\*") -and $TestFileFullName -like "*.*" ){
@@ -60,7 +60,7 @@ Function Verify-ResourcesInInstructionsFile {
 
 
 # Update $vamRoot with the base install path for VAM.exe
-If($vamRoot -eq $null){ $vamRoot = $PSScriptRoot } # don't use .\ for the root path for this script: it's kills path parsing above
+If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") } # don't use .\ for the root path for this script: it's kills path parsing above
 
 $ScriptName            = "iHV_VerifyPaths"
 $ScriptVersion         = "1.0.0"

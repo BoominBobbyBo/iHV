@@ -21,7 +21,7 @@ Write-Host
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") }
 
 $ScriptName            = "iHV_Util_MoveDupScenes"
-$ScriptVersion         = "1.0.0"
+$ScriptVersion         = "1.0.1"
 $LogPath               = ".\_2a " + $ScriptName + ".log"
 $LogEntry              = Get-Date -Format "yyyy/MM/dd HH:mm" 
 
@@ -45,7 +45,7 @@ $Exceptions = @(
     ######################               ###################### 
 
 MD ($RecycleBin) -ErrorAction SilentlyContinue
-""""+ 'FileName' +""""+","+""""+ 'Path' +""""+","+""""+ 'Duplicate' +"""" +","+""""+ 'Moved' +"""" | Out-File -FilePath $DupReportCSVpath # Clears previous and creates the report file anew for each execution
+""""+ 'DupName' +""""+","+""""+ 'DupPath' +""""+","+""""+ 'PrimaryFile' +"""" +","+""""+ 'Moved' +"""" | Out-File -FilePath $DupReportCSVpath # Clears previous and creates the report file anew for each execution
 
 
 # Scan VAM folders for instruction files
@@ -91,7 +91,6 @@ $arrInstructionFiles | ForEach-Object {
 
         # Identify duplicates based on Name and Size
         $arrDupFiles = $arrInstructionFiles | Where-Object{ $_.FullName.Replace("[","").Replace("]","").Replace("(","").Replace(")","") -imatch $FileName1.Replace("[","").Replace("]","").Replace("(","").Replace(")","") -and $_.FileSize -imatch $FileSize1 }
-        #$arrDupFiles = $arrInstructionFiles | Where-Object{ $_.FullName -ilike ("*" + $FileName1) -and $_.FileSize -imatch $FileSize1 }
           
         $arrDupFiles | ForEach-Object {
 
@@ -112,10 +111,10 @@ $arrInstructionFiles | ForEach-Object {
                     Write-Host --- DUP FOUND: $FullName2 ::: Moving: $blnMoveDups  
                     Write-Host
 
-                    If( $FullName1 -ilike "*\aMisc\*" ){$TargetPath = $Path1}                  
-                    Else{$TargetPath = $Path2}
+                    If( $FullName1 -ilike "*\aMisc\*" -or $FullName1 -ilike "*\iHV_Normalized\*" ){$TargetPath = $Path1; $PrimaryFile = $FullName2}                  
+                    Else{$TargetPath = $Path2; $PrimaryFile = $FullName1}
 
-                    Get-ChildItem -Path $TargetPath -File -Force | Where-Object { $_.Name.Replace("[","").Replace("]","").Replace("(","").Replace(")","") -ilike ($FileBase2.Replace("[","").Replace("]","").Replace("(","").Replace(")","") + ".*") } | Foreach-Object{    
+                    Get-ChildItem -Path $TargetPath -File -Force | Where-Object { $_.Name -ilike $FileBase2 + ".*" } | Foreach-Object{    
                                 
                         #Write-Host ---Dup: $_.FullName                          
 
@@ -124,12 +123,15 @@ $arrInstructionFiles | ForEach-Object {
                             $Error.Clear()  
 
                             $_ | Move-Item -Destination ($RecycleBin) -Force -ErrorAction SilentlyContinue
-                            If($Error[0] -notmatch "because it does not exist."){ $MovedFilesCount = $MovedFilesCount + 1 }
+                            If($Error[0] -notmatch "because it does not exist."){ 
+                                $MovedFilesCount = $MovedFilesCount + 1
+                                $Moved = $true
+                            }
                             $arrMovedFiles += $_.FullName
                         }
 
                         # Report dup
-                        """"+ $_.Name +""""+","+""""+ $Path1 +""""+","+""""+ $_.FullName +"""" +","+""""+ $Moved +"""" | Out-File -FilePath $DupReportCSVpath -Append
+                        """"+ $_.Name +""""+","+""""+ $TargetPath +""""+","+""""+ $PrimaryFile +"""" +","+""""+ $Moved +"""" | Out-File -FilePath $DupReportCSVpath -Append
                         $FoundDups = $FoundDups + 1                
 
                     } # Get-Children Path2
