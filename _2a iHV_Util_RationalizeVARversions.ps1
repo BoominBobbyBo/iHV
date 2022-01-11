@@ -52,7 +52,7 @@ If($blnFixNames -eq $true){
 
     # Remove (x) from file names - e.g. backup files or copies
 
-    Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { ($_.Name -ilike "*.var" -or $_.Name -ilike "*.zip" -or $_.Name -ilike "*.rar" -or $_.Name -ilike "*.7z") -and $_.Name -inotlike "*Morph*"  -and $_.Name -ilike "*(*" -and $_.Name -ilike "*)*"  -and $_.FullName -inotlike ("*" + $RecycleBin + "*") } | Foreach-Object {
+    Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { $_.Name -imatch "(\.var|\.zip|\.rar|\.7z)" -and $_.Name -imatch "(\(|\))" -and $_.Name -inotmatch "Morph" -and $_.FullName -inotlike ("*" + $RecycleBin + "*") } | Foreach-Object {
  
         Write-Host ---Fixing file name: $_.Name
  
@@ -83,10 +83,34 @@ If($blnFixNames -eq $true){
 
     } # for each found with ()
 
+    # Remove []
+
+    Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { $_.Name -match "(\[|\])" -and $_.FullName -inotlike ("*" + $RecycleBin + "*") } | Foreach-Object {
+       
+        $NewName = $_.Name.Replace("[", "")
+        $NewName = $NewName.Replace("]", "").Trim()
+
+        $Error.Clear()
+        
+        Rename-Item $_ $NewName -ErrorAction SilentlyContinue
+
+        If($Error[0] -match "Cannot create a file when that file already exists."){ 
+
+            If($blnMoveFiles -eq $true){ $_ | Move-Item -Destination ($RecycleBin) -Force -ErrorAction SilentlyContinue }
+            """"+'DUP'+""""+','+""""+ $_.FullName +""""+","+""""+$blnMoveFiles+""""+","+""""+$NewName+"""" | Out-File -FilePath $RatVarReportCSVpath -Append
+        
+            Write-host .................................................
+            Write-host ...Dup detected: $_.Name
+            Write-host .................................................
+        
+            $FilesMovedCount = $FilesMovedCount + 1        
+        }
+    
+    } # Remove []
 
     # Remove .orig from file names - e.g. unpacked VARs
 
-    Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { ($_.Name -ilike "*.orig") -and $_.FullName -inotlike ("*" + $RecycleBin + "*") } | Foreach-Object {
+    Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { ($_.Name -imatch "\.orig") -and $_.FullName -inotlike ("*" + $RecycleBin + "*") } | Foreach-Object {
  
         Write-Host ---Fixing: $_.Name
 
@@ -111,7 +135,7 @@ If($blnFixNames -eq $true){
 
     # Remove - Copy from file names
 
-    Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { ($_.Name -ilike "* - Copy*") -and $_.FullName -inotlike ("*" + $RecycleBin + "*") } | Foreach-Object {
+    Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { ($_.Name -imatch " - Copy") -and $_.FullName -inotlike ("*" + $RecycleBin + "*") } | Foreach-Object {
  
         Write-Host ---Fixing: $_.Name
 
@@ -133,41 +157,13 @@ If($blnFixNames -eq $true){
 
     } # for each found with Copy
 
-    <# Remove []
-
-    Tabled: this change would orphan the .VAR file if the player isn't normalizing.
-
-    Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { ($_.Name -match "\[" -and $_.Name -match "\]") -and $_.FullName -inotlike ("*" + $RecycleBin + "*") } | Foreach-Object {
-       
-        $NewName = $_.Name.Replace("[", "")
-        $NewName = $NewName.Replace("]", "").Trim()
-
-        $Error.Clear()
-        
-        Rename-Item $_ $NewName -ErrorAction SilentlyContinue
-
-        If($Error[0] -match "Cannot create a file when that file already exists."){ 
-
-            If($blnMoveFiles -eq $true){ $_ | Move-Item -Destination ($RecycleBin) -Force -ErrorAction SilentlyContinue }
-            """"+'DUP'+""""+','+""""+ $_.FullName +""""+","+""""+$blnMoveFiles+""""+","+""""+$NewName+"""" | Out-File -FilePath $RatVarReportCSVpath -Append
-        
-            Write-host .................................................
-            Write-host ...Dup detected: $_.Name
-            Write-host .................................................
-        
-            $FilesMovedCount = $FilesMovedCount + 1        
-        }
-    
-    } # Remove []
-    #>
-
 } # if fix names
 
 
 # Build master table of VARs 
 #  -exclude files with 'Morphs' in the name, which tend to be required regardless of the version, and files already moved into the RecycleBin folder
 
-Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { $_.Name -ilike "*.var" -and $_.Name -inotlike "*Morph*"  -and $_.Name -inotlike "*(*" -and $_.Name -inotlike "*)*"  -and $_.FullName -inotlike ("*" + $RecycleBin + "*")  } | Foreach-Object {
+Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { $_.Name -imatch "\.var" -and $_.Name -inotmatch "Morph" -and $_.FullName -inotlike ("*" + $RecycleBin + "*")  } | Foreach-Object {
 
     If( ($_.ToString().ToCharArray() -eq '.').count -ge 2 ){ # not all authors follow the convention; filter out those not formated like a VAR
 
@@ -197,7 +193,7 @@ Write-host ---Found $arrVARs.Count VAR files
 
 If($blnCheckArchives -eq $true){
 
-    Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { ($_.Name -ilike "*.zip" -or $_.Name -ilike "*.rar*" -or $_.Name -ilike "*.7z*")  -and $_.Name -inotlike "*(*" -and $_.Name -inotlike "*)*"  -and $_.FullName -inotlike ("*" + $RecycleBin + "*")  } | Foreach-Object {
+    Get-ChildItem -Path $vamRoot -File -Recurse -Force | Where-Object { $_.Name -imatch "(\.zip|\.rar|\.7z)" -and $_.Name -notmatch "(\(|\)|\[|\})" -and $_.FullName -inotlike ("*" + $RecycleBin + "*")  } | Foreach-Object {
 
         $archiveName = $_.Name                                                                                                                        # e.g. BallerDev.BallerLook.2.zip
 
@@ -237,12 +233,12 @@ If($blnExportAssets -eq $true){
 
         $Var = [System.IO.Compression.ZipFile]::Open($_.FullName,'Update')
 
-        $Var.Entries | Where-Object { $_.Name -ilike "*.assetbundle" } | ForEach-Object { 
+        $Var.Entries | Where-Object { $_.Name -imatch "(\.assetbundle|\.scene)" } | ForEach-Object { 
 
             [System.IO.Compression.ZipFileExtensions]::ExtractToFile($_, ($vamRoot + "Assets\" + $_.Name), $true)
         }
 
-        $Asset = $Var.Entries | Where {$_.Name -ilike "*.assetbundle"}
+        $Asset = $Var.Entries | Where {$_.Name -imatch "(\.assetbundle|\.scene)"}
         If($Asset -ne $null){ $Asset.Delete() }
 
         $Var.Dispose()        

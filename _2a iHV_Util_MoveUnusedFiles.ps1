@@ -52,6 +52,7 @@ $blnProcessHair      = $false
 $blnProcessClothing  = $false    
 $blnProcessTextures  = $false    
 
+$FileType_RegExFilter = "(\.dll|\.vab|\.vaj|\.vam|\.vap|\.vmi|\.json|\.jpg|\.png|\.mp3|\.wav|\.ogg|\.m4a|\.webm|\.amc|\.assetbundle|\.scene|\.clist|\.cs|\.bvh)"
 
 $RecycleBin          = ($vamRoot + '_2a iHV_UnusedRecycleBin')
 $LinksCSVpath        = ($RecycleBin + '\_2a iHV_InstructionLinks.csv')
@@ -114,7 +115,7 @@ If($blnBuildLinkLibrary -eq $true){
 
             Write-Host ---Reading: $SourceFullFilePath
 
-            $Instructions = [System.IO.File]::ReadAllLines($_) | Where-Object { $_ -inotmatch (""""+"name"+""""+":") -and ($_ -ilike "*Custom/*" -or $_ -ilike "*Saves/*") -and ($_ -imatch ".vam" -or $_ -imatch ".vmi" -or $_ -imatch ".jpg" -or $_ -imatch ".png" -or $_ -imatch ".mp3" -or $_ -imatch ".wav" -or $_ -imatch ".ogg") }
+            $Instructions = [System.IO.File]::ReadAllLines($_) | Where-Object { $_ -inotmatch (""""+"name"+""""+":") -and ($_ -imatch $FileType_RegExFilter) }
 
             $Instructions | ForEach-Object { 
 
@@ -157,7 +158,7 @@ Write-Host ...Loaded: $LinksCSV.Count resource links
 
 $arrResourceFiles = @()
 $InstructionsDirs | ForEach-Object {
-    Get-ChildItem -Path ($vamRoot + $_) -File -Include *.vmi, *.vam, *.jpg, *.png, *.mp3, *.wav, *.ogg -Recurse -Force -ErrorAction SilentlyContinue | Where-Object {$_ -inotlike ('*' + $RecycleBin +'*')} | Foreach-Object { $arrResourceFiles += $_.FullName }
+    Get-ChildItem -Path ($vamRoot + $_) -File -Include *assetbundle,*.vmi,*.vam,*.jpg,*.png,*.mp3,*.mfa,*.ogg,*wav,*.webm -Recurse -Force -ErrorAction SilentlyContinue | Where-Object {$_ -inotlike ('*' + $RecycleBin +'*')} | Foreach-Object { $arrResourceFiles += $_.FullName }
 }
 
 Write-Host ...Found: $arrResourceFiles.Count Custom and Saves files.
@@ -195,7 +196,7 @@ $arrResourceFiles | ForEach-Object {
     Else{
         # if not in InstructionLinks....
 
-        If($File_VAMpath -ilike '*.vmi' -and $blnProcessMorphs -eq $true){ 
+        If($File_VAMpath -imatch '\.vmi' -and $blnProcessMorphs -eq $true){ 
 
             # Morphs
             write-host ---Orphaned Morph: $File_VAMpath
@@ -211,7 +212,7 @@ $arrResourceFiles | ForEach-Object {
                 
             $File_FullPath | Move-Item -Destination ($RecycleBin + "\" + $type) -Force -ErrorAction SilentlyContinue 
             If($Error[0] -notmatch "because it does not exist."){ 
-                    """"+$type+""""+','+""""+ $File_FullPath +"""" | Out-File -FilePath $MoveReportCSVpath -Append
+                    """"+$type+""""+','+""""+ $File_VAMpath +"""" | Out-File -FilePath $MoveReportCSVpath -Append
                     $arrMovedFiles += $_.FullName
             }
 
@@ -219,7 +220,7 @@ $arrResourceFiles | ForEach-Object {
 
             $vmb | Move-Item -Destination ($RecycleBin + "\" + $type) -Force -ErrorAction SilentlyContinue
             If($Error[0] -notmatch "because it does not exist."){ 
-                    """"+$type+""""+','+""""+ $vmb +"""" | Out-File -FilePath $MoveReportCSVpath -Append
+                    """"+$type+""""+','+""""+ $vmb.Replace($vamRoot,'') +"""" | Out-File -FilePath $MoveReportCSVpath -Append
                     $arrMovedFiles += $_.FullName
             }
 
@@ -227,7 +228,7 @@ $arrResourceFiles | ForEach-Object {
 
             $jpg | Move-Item -Destination ($RecycleBin + "\" + $type) -Force -ErrorAction SilentlyContinue
             If($Error[0] -notmatch "because it does not exist."){ 
-                    """"+$type+""""+','+""""+ $jpg +"""" | Out-File -FilePath $MoveReportCSVpath -Append
+                    """"+$type+""""+','+""""+ $jpg.Replace($vamRoot,'') +"""" | Out-File -FilePath $MoveReportCSVpath -Append
                     $arrMovedFiles += $_.FullName
             }
 
@@ -235,13 +236,13 @@ $arrResourceFiles | ForEach-Object {
 
             $png | Move-Item -Destination ($RecycleBin + "\" + $type) -Force -ErrorAction SilentlyContinue
             If($Error[0] -notmatch "because it does not exist."){ 
-                    """"+$type+""""+','+""""+ $png +"""" | Out-File -FilePath $MoveReportCSVpath -Append
+                    """"+$type+""""+','+""""+ $png.Replace($vamRoot,'') +"""" | Out-File -FilePath $MoveReportCSVpath -Append
                     $arrMovedFiles += $_.FullName
             }
         
         } # If vmi
 
-        ElseIf( ($File_VAMpath -ilike '*.mp3' -or $File_VAMpath -ilike '*.wav' -or $File_VAMpath -ilike '*.ogg') -and $blnProcessAudio -eq $true){ 
+        ElseIf( ($File_VAMpath -imatch '\.mp3' -or $File_VAMpath -imatch '\.wav' -or $File_VAMpath -imatch '\.ogg') -and $blnProcessAudio -eq $true){ 
 
             # Audio
             write-host ---Orphaned Audio: $File_VAMpath           
@@ -251,13 +252,13 @@ $arrResourceFiles | ForEach-Object {
                 
             $File_FullPath | Move-Item -Destination ($RecycleBin + "\" + $type) -Force -ErrorAction SilentlyContinue
             If($Error[0] -notmatch "because it does not exist."){ 
-                    """"+$type+""""+','+""""+ $File_FullPath +"""" | Out-File -FilePath $MoveReportCSVpath -Append
+                    """"+$type+""""+','+""""+ $File_VAMpath +"""" | Out-File -FilePath $MoveReportCSVpath -Append
                     $arrMovedFiles += $_.FullName
             }
 
         } # If Audio
 
-        ElseIf($File_VAMpath  -ilike '*.vam' ){
+        ElseIf($File_VAMpath  -imatch '\.vam' ){
 
             # Hair | Clothing | Skin
         
@@ -279,7 +280,7 @@ $arrResourceFiles | ForEach-Object {
             Get-ChildItem -Path $Path -File -Include *.vam, *.vab, *.vaj, *.vap, *.jpg, *.png -Recurse -Force -ErrorAction SilentlyContinue | Where-Object {$_ -ilike ( $File_FullPath.Replace(".vam", ".") + "*" )} | Foreach-Object {
 
                 write-host ---Orphaned $type : $_
-                """"+$type+""""+','+""""+ $_ +"""" | Out-File -FilePath $MoveReportCSVpath -Append
+                """"+$type+""""+','+""""+ $_.FullName.Replace($vamRoot,"") +"""" | Out-File -FilePath $MoveReportCSVpath -Append
                        
                     $Error.Clear()
 
@@ -291,7 +292,7 @@ $arrResourceFiles | ForEach-Object {
 
         } # if vam
 
-        ElseIf( ($File_VAMpath -imatch '.jpg' -or $_.Link_RelPath -imatch '.png') -and $blnProcessTextures -eq $true ){ 
+        ElseIf( ($File_VAMpath -imatch '\.jpg' -or $_.Link_RelPath -imatch '\.png') -and $blnProcessTextures -eq $true ){ 
 
             # Is it a thumbnail?            
             # Search for similar file names with alternate extensions
@@ -309,7 +310,7 @@ $arrResourceFiles | ForEach-Object {
             If($Error.Count -eq 0 -and $SimilarFiles.Count -eq 0){ 
                             
                 Write-Host ---Orphaned image: $File_FullPath
-                """"+'Image'+""""+','+""""+$File_FullPath+"""" | Out-File -FilePath $MoveReportCSVpath -Append
+                """"+'Image'+""""+','+""""+$File_VAMpath+"""" | Out-File -FilePath $MoveReportCSVpath -Append
                 
                 ($File_FullPath) | Move-Item -Destination ($RecycleBin + "\Images")  -Force -ErrorAction SilentlyContinue 
                 If($Error[0] -notmatch "because it does not exist."){ $arrMovedFiles += $_.FullName }

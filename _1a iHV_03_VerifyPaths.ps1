@@ -21,11 +21,11 @@ Function Verify-ResourcesInInstructionsFile {
         #write-host ---VERIFYING: $File_FullName
 
         # Instructions FILES - Get the raw file Instructions to update ----------------------------------------->
-        $Instructions = [System.IO.File]::ReadAllLines($File_FullName) | Where-Object {($_ -match "Custom/" -or $_ -match "Saves/" -or $_ -match "./") -and $_ -match "."} # .NET function (requires .NET) (Get-Instructions -raw $File_FullName)
+        $Instructions = [System.IO.File]::ReadAllLines($File_FullName) # .NET function (requires .NET) (Get-Instructions -raw $File_FullName)
 
         #-----------------------------------------------------------------------------> 
 
-        $Instructions | ForEach-Object { 
+        $Instructions | Where-Object { $_ -imatch $FileType_RegExFilter } | ForEach-Object { 
 
             $Line = $_ #.ToLower() # line from the file being read-in
 
@@ -40,7 +40,6 @@ Function Verify-ResourcesInInstructionsFile {
             $TestFileFullName = ($vamRoot + $NodeValue.Replace("/","\").Replace(".\","")).Trim()
 
             # Verify it's a testable path to ensure the qualification above wasn't satisfied by the NodeName
-            If( ($TestFileFullName -ilike "*Custom\*" -or $TestFileFullName -ilike "*Saves\*") -and $TestFileFullName -like "*.*" ){
 
                 #Use Powershell's Test-Path cmdlet to verify file
                 If( Test-Path -LiteralPath $TestFileFullName -PathType Leaf ){ }
@@ -48,7 +47,6 @@ Function Verify-ResourcesInInstructionsFile {
                    Write-Host "----Not found: " $TestFileFullName " ---Sourc file: " $File_FullName
                    """" + $TestFileFullName +""""+ ","+""""+$File_FullName+"""" | Out-File -FilePath $LogPath -Append
                 }
-            }
          
         } # $Instructions | ForEach-Object
 
@@ -58,6 +56,8 @@ Function Verify-ResourcesInInstructionsFile {
 
 # > > > SCRIPT TUNING
 
+
+$FileType_RegExFilter       = "(\.json|\.vab|\.vaj|\.vam|\.vap|\.vmi|\.jpg|\.png|\.mp3|\.wav|\.ogg|\.m4a|\.webm|\.amc|\.assetbundle|\.scene|\.clist|\.cs|\.bvh)"
 
 # Update $vamRoot with the base install path for VAM.exe
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") } # don't use .\ for the root path for this script: it's kills path parsing above
