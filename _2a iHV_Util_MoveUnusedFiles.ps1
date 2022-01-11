@@ -27,7 +27,7 @@ Write-Host
 
 If($blnLaunched -ne $true){ 
     Read-Host -Prompt 'You must run either RemoveVARpaths.ps1 or NormalizeVAM4VR.ps1 first (hit ENTER to continue)' 
-    Read-Host -Prompt 'No. Really. All morphs and audios will be moved regardless of links, if you dont run RemoveVARpaths.p1 or Normalize4VR.ps1 first (hit ENTER to continue)'
+    Read-Host -Prompt 'No. Really. All resourcess will be moved regardless of status, if you dont run RemoveVARpaths.p1 or Normalize4VR.ps1 first (hit ENTER to continue)'
 }
 
     ###################### SCRIPT TUNING ###################### 
@@ -37,7 +37,7 @@ If($blnLaunched -ne $true){
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + '\') }
 
 $ScriptName = 'iHV_Util_MoveUnusedFiles'
-$ScriptVersion = '1.0.2'
+$ScriptVersion = '1.0.4'
 $LogPath = ($PSScriptRoot + '\_2a ' + $ScriptName + '.log')
 $LogEntry = Get-Date -Format 'yyyy/MM/dd HH:mm' 
 
@@ -95,6 +95,7 @@ MD ($RecycleBin + "\Morph") -ErrorAction SilentlyContinue
 MD ($RecycleBin + "\Images") -ErrorAction SilentlyContinue
 MD ($RecycleBin + "\Audio") -ErrorAction SilentlyContinue
 MD ($RecycleBin + "\Skin") -ErrorAction SilentlyContinue
+MD ($RecycleBin + "\Other") -ErrorAction SilentlyContinue
 
 """"+'MovedToType'+""""+','+""""+ 'MovedFrom' +"""" | Out-File -FilePath $MoveReportCSVpath # Clears previous and creates the report file anew for each execution
 
@@ -131,7 +132,7 @@ If($blnBuildLinkLibrary -eq $true){
                     $Link_RelPath = $_.Replace($NodeName,'').Trim().Trim(',').Trim("""")  # json node value pair - value, e.g. 'Custom/sounds/some.mp3'
 
                     # if file name only, add relative path or the check below will show a false positive
-                    If($Link_RelPath.IndexOf("/") -eq -1){$Link_RelPath = ($Directory.ToString().Replace("\","/") + "/" + $Link_RelPath)}
+                    If($Link_RelPath.IndexOf("/") -eq -1){$Link_RelPath = ($Directory.ToString() + "/" + $Link_RelPath).Replace($vamRoot,"").Replace("\","/")}
 
                     If($Link_RelPath.Length -ge 16){ # sample: Saves/78/01/3.16
 
@@ -318,6 +319,21 @@ $arrResourceFiles | ForEach-Object {
             }
        
         } # if jpg or png
+
+        ElseIf( $File_VAMpath -imatch '\.dll' -or $File_VAMpath -imatch '\.exe' -or $File_VAMpath -imatch '\.ps1'){ 
+
+            write-host ---Orphaned OTHER: $File_VAMpath           
+
+            $type = "Other"
+            $Error.Clear()
+                
+            $File_FullPath | Move-Item -Destination ($RecycleBin + "\" + $type) -Force -ErrorAction SilentlyContinue
+            If($Error[0] -notmatch "because it does not exist."){ 
+                    """"+$type+""""+','+""""+ $File_VAMpath +"""" | Out-File -FilePath $MoveReportCSVpath -Append
+                    $arrMovedFiles += $_.FullName
+            }
+
+        } # If Audio
 
         Else{
 

@@ -1,7 +1,8 @@
 <#
 
     I Hate VARS - Rationalize VARs
-        - Rationalize set of VARs by version: i.e. move lessor versions off into a subfolder
+
+        - Rationalize VARs and archive files by version: i.e. move lessor versions off into a subfolder
     
     Optional:
         - Auto moving files is optional
