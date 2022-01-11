@@ -5,7 +5,7 @@ Utilities for File Management
 
 Pick one or more. You don’t have to use all. Though, there are some dependencies between them.
 
-The following script works only with VAR files
+The following script works only with VAR & archive files
 1.	<b>RationalizeVARversions.ps1</b> – remove previous versions of VAR files.
 
 The following scripts don’t work with VAR files. Content must first be extracted from VARs for the scripts to work.
