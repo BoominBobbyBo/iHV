@@ -6,19 +6,19 @@ Utilities for File Management
 Pick one or more. You don’t have to use all. Though, there are some dependencies between them.
 
 The following script works only with VAR files
-1.	<b>RationalizeVarVersions.ps1</b> – remove previous versions of VAR files.
+1.	<b>RationalizeVARversions.ps1</b> – remove previous versions of VAR files.
 
 The following scripts don’t work with VAR files. Content must first be extracted from VARs for the scripts to work.
 
 2.	<b>RemoveVarPaths.ps1</b> –enable VAM to find resources that have been extracted/moved out VARs.
 
-3.	<b>NormalizeVAM4VR.ps1</b> – Big dog changes. See below.
+3.	<b>Normalize4VR.ps1</b> – Big dog changes. See below.
 
 Once one of the above scripts is run, you can use:
 
-4.	<b>CleanUp.ps1</b> – remove empty/duplicate items after running NormalizeVAM4VR.ps1 (see attached .RFT file)
+4.	<b>Normalize4VR-CleanUp.ps1</b> – remove empty/duplicate items after running NormalizeVAM4VR.ps1 (see attached .RFT file)
 
-5.	<b>DupScenes.ps1</b> – move duplicates to a recycle bin.
+5.	<b>MoveDupScenes.ps1</b> – move duplicates to a recycle bin.
 
 6.	<b>MoveUnusedFiles.ps1</b> – move “orphaned” resources that are not linked to a VAM instruction file
 
