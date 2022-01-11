@@ -12,7 +12,7 @@ The following scripts don’t work with VAR files. Content must first be extract
 
 2.	<b>RemoveVarPaths.ps1</b> –enable VAM to find resources that have been extracted/moved out VARs.
 
-3.	<b>Normalize4VR.ps1</b> – Big dog changes. See below.
+3.	<b>Normalize4VR.ps1</b> – Big dog changes. See .RTF file above.
 
 Once one of the above scripts is run, you can use:
 
