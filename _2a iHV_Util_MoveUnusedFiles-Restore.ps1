@@ -24,7 +24,7 @@ Write-Host
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + '\') }
 
 $ScriptName = 'iHV_Util_MoveUnusedFiles-Woops'
-$ScriptVersion = '1.0.1'
+$ScriptVersion = '1.0.2'
 $LogPath = ($PSScriptRoot + '\_2a ' + $ScriptName + '.log')
 $LogEntry = Get-Date -Format 'yyyy/MM/dd HH:mm' 
 
@@ -37,16 +37,16 @@ $MoveReportCSVpath   = ($RecycleBin + '\_2a iHV_MoveReport.csv')
 
 $FilePathCount = 0
 
-$MoveReportCSV = Import-CSV $MoveReportCSVpath | Get-Unique -AsString | Where-Object {$_.Type -eq "Morph" -and ($_.FullFilePath -imatch "\(" -or $_.FullFilePath -imatch "\)")} | ForEach-Object{
+$MoveReportCSV = Import-CSV $MoveReportCSVpath | Get-Unique -AsString | Where-Object {$_.Type -eq "Morph"} | ForEach-Object{
 
     
-    $SourceDir = $_.FullFilePath
+    $SourceDir = $_.MovedFrom
     $SourceDir = $SourceDir.Substring(0, $SourceDir.LastIndexOf("\") + 1)
     $FileName = $_.FullFilePath.Replace($SourceDir, "").Trim("\")
 
     Write-Host ---Move::: $FileName ::: to ::: $SourceDir 
 
-    ($RecycleBin + "\" + $_.MovedToType + "\" + $FileName) | Copy-Item -Destination $SourceDir
+    ($RecycleBin + "\" + $_.Type + "\" + $FileName) | Copy-Item -Destination $SourceDir
 
     $FilePathCount = $FilePathCount + 1
 
@@ -58,4 +58,4 @@ Write-Host ...Restored: $FilePathCount resource files
     Write-host ******************** END: $ScriptName  ************************
     Write-Host
 
-Read-Host -Prompt 'Files were copied to thier origin. The recycle bin was not cleared. Manually deleted any files as needed. (hit ENTER to continue)'
+Read-Host -Prompt $FilePathCount + ' Files were copied to thier origin. The recycle bin was not cleared. Manually deleted any files as needed. (hit ENTER to continue)'

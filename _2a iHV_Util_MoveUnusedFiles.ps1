@@ -97,7 +97,7 @@ MD ($RecycleBin + "\Audio") -ErrorAction SilentlyContinue
 MD ($RecycleBin + "\Skin") -ErrorAction SilentlyContinue
 MD ($RecycleBin + "\Other") -ErrorAction SilentlyContinue
 
-""""+'MovedToType'+""""+','+""""+ 'MovedFrom' +"""" | Out-File -FilePath $MoveReportCSVpath # Clears previous and creates the report file anew for each execution
+""""+'Type'+""""+','+""""+ 'MovedFrom' +"""" | Out-File -FilePath $MoveReportCSVpath # Clears previous and creates the report file anew for each execution
 
 # Scan VAM instruction files to build a live database of required resource files (aka 'links')
 
@@ -185,8 +185,8 @@ $arrResourceFiles | ForEach-Object {
 
     # For each resource file
 
-    $File_FullPath     = $_ # Sample: C:\VAM\Custom\Sounds\boomboom.mp3
-    $File_VAMpath      = $File_FullPath.Replace($vamRoot,'').Replace('\','/')  # sample: Custom/Sounds/boomboom.mp3
+    $File_FullPath     = ($vamRoot + $_).Replace('/','\') # Sample: C:\VAM\Custom\Sounds\boomboom.mp3
+    $File_VAMpath      = $_.Replace('\','/')  # sample: Custom/Sounds/boomboom.mp3
 
     # Write-host - RFP::: $File_VAMpath
     # Write-host - Matched:: ($LinksCSV.Link_RelPath -icontains $File_VAMpath)
