@@ -211,7 +211,7 @@ $arrResourceFiles | ForEach-Object {
             $type = "Morph"
             $Error.Clear()
                 
-            $File_FullPath | Move-Item -Destination ($RecycleBin + "\" + $type) -Force -ErrorAction SilentlyContinue 
+            $File_VAMpath | Move-Item -Destination ($RecycleBin + "\" + $type) -Force -ErrorAction SilentlyContinue 
             If($Error[0] -notmatch "because it does not exist."){ 
                     """"+$type+""""+','+""""+ $File_VAMpath +"""" | Out-File -FilePath $MoveReportCSVpath -Append
                     $arrMovedFiles += $_.FullName
