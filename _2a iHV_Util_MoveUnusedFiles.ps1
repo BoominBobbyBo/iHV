@@ -37,7 +37,7 @@ If($blnLaunched -ne $true){
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + '\') }
 
 $ScriptName = 'iHV_Util_MoveUnusedFiles'
-$ScriptVersion = '1.0.4'
+$ScriptVersion = '1.0.5'
 $LogPath = ($PSScriptRoot + '\_2a ' + $ScriptName + '.log')
 $LogEntry = Get-Date -Format 'yyyy/MM/dd HH:mm' 
 
@@ -111,10 +111,10 @@ If($blnBuildLinkLibrary -eq $true){
 
         Get-ChildItem -Path ($vamRoot + $_)  -File -include *.json, *.vap, *.vaj -Recurse -Force | Foreach-Object { 
     
-            $SourceFullFilePath = $_.FullName
-            $Directory = $_.Directory
+            $Source_RelPath = $_.FullName.Replace($vamRoot,"")
+            $Directory = $_.Directory.ToString().Replace($vamRoot,"")
 
-            Write-Host ---Reading: $SourceFullFilePath
+            Write-Host ---Reading: $Source_RelPath
 
             $Instructions = [System.IO.File]::ReadAllLines($_) | Where-Object { $_ -inotmatch (""""+"name"+""""+":") -and ($_ -imatch $FileType_RegExFilter) }
 
@@ -132,11 +132,11 @@ If($blnBuildLinkLibrary -eq $true){
                     $Link_RelPath = $_.Replace($NodeName,'').Trim().Trim(',').Trim("""")  # json node value pair - value, e.g. 'Custom/sounds/some.mp3'
 
                     # if file name only, add relative path or the check below will show a false positive
-                    If($Link_RelPath.IndexOf("/") -eq -1){$Link_RelPath = ($Directory.ToString() + "/" + $Link_RelPath).Replace($vamRoot,"").Replace("\","/")}
+                    If($Link_RelPath.IndexOf("/") -eq -1){$Link_RelPath = ($Directory.ToString() + "/" + $Link_RelPath).Replace("\","/")}
 
                     If($Link_RelPath.Length -ge 16){ # sample: Saves/78/01/3.16
 
-                        If($blnDebug -eq $true){ """"+$Link_RelPath +""""+','+""""+ $SourceFullFilePath +"""" | Out-File -FilePath $LinksCSVpath -Append }
+                        If($blnDebug -eq $true){ """"+$Link_RelPath +""""+','+""""+ $Source_RelPath +"""" | Out-File -FilePath $LinksCSVpath -Append }
                         Else{ """"+$Link_RelPath +"""" | Out-File -FilePath $LinksCSVpath -Append }
                     }
                 }
