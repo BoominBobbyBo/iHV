@@ -15,8 +15,9 @@ v1.0.0
 #>
 
 
-Read-Host -Prompt '1. Backup you fools. 2. Execute iHV on staging content only (suggested).' 
-Read-Host -Prompt 'Exit now if you have not completed step 1 and 2. (hit ENTER to continue)'
+Read-Host -Prompt 'WARNING: Do not use on VARs. iHV Normalize scripts are for extracted contact only. (hit ENTER to continue)'
+Read-Host -Prompt 'WARNING: Backup you fools. Execute iHV on staging content (suggested). (hit ENTER to continue)' 
+Read-Host -Prompt 'Exit now if you have not prepared content accordingly. (hit ENTER to continue)'
 
 $vamRoot = ($PSScriptRoot + "\") # use the current folder as the root; example: C:\iHV_VAM\ (if staging) or C:\VAM\
 $blnLaunched = $true # sends a queue to the scripts below not to prompt warnings before executing
