@@ -2,6 +2,8 @@
 
     For each of the core JSON files, read all the paths and verify that a file would be found in the file system
 
+    v1.0.0
+
 #>
 
 Write-Host
@@ -18,7 +20,7 @@ Function Verify-ResourcesInInstructionsFile {
         $File_FullName
     )
 
-        #write-host ---VERIFYING: $File_FullName
+        # write-host ---VERIFYING: $File_FullName
 
         # Instructions FILES - Get the raw file Instructions to update ----------------------------------------->
         $Instructions = [System.IO.File]::ReadAllLines($File_FullName) # .NET function (requires .NET) (Get-Instructions -raw $File_FullName)
@@ -29,24 +31,35 @@ Function Verify-ResourcesInInstructionsFile {
 
             $Line = $_ #.ToLower() # line from the file being read-in
 
+            $NodeName = ""
             $NodeName = $Line.Substring(0, $Line.indexOf(":") + 3 ).Trim()
-            $NodeValue = $Line.Replace($NodeName,"").Trim().Trim(",").Trim("""")
-            # $LastSlash = $NodeValue.lastindexof("/")
-            # $BasePath = $NodeValue.Substring( 0, $LastSlash ).Trim("/")
-            # $FileName = $NodeValue.Replace($BasePath,"").Trim("/")
+            
+            If($NodeName.length -ge 5){ # if there's enough characters to indicate a file name            
+            
+                $NodeValue = $Line.Replace($NodeName,"").Trim().Trim(",").Trim("""")
 
-            # Write-Host "----NodeName: " $NodeName " Value: " $NodeValue
+                # Write-Host "----NodeName: " $NodeName " Value: " $NodeValue
+                # If($NodeValue -match "Custom"){Write-host ---FFN:: $File_FullName ::DN:: $DirectoryName :: NV:: $NodeValue}
 
-            $TestFileFullName = ($vamRoot + $NodeValue.Replace("/","\").Replace(".\","")).Trim()
+                $TestFileFullName = ""
+                If($NodeValue -notmatch "(\./|/)" ){ # if there is either a short-cut VAM path or no relative path (resource file is in the same directory as the instruction file)
+                    $DirectoryName = $File_FullName.Substring( 0, ($File_FullName.LastIndexOf("\") + 1) )  
+                    $TestFileFullName = ($DirectoryName + $NodeValue).Replace("./","/").Replace("/","\").Trim()
+                }            
+                Else{ 
+                    #write-host  PATH:: $NodeValue
+                    $TestFileFullName = ($vamRoot + $NodeValue).Replace("/","\").Trim() 
+                } # if there is a VAM path
 
-            # Verify it's a testable path to ensure the qualification above wasn't satisfied by the NodeName
+                # Verify it's a testable path to ensure the qualification above wasn't satisfied by the NodeName
 
-                #Use Powershell's Test-Path cmdlet to verify file
-                If( Test-Path -LiteralPath $TestFileFullName -PathType Leaf ){ }
-                else{
-                   Write-Host "----Not found: " $TestFileFullName " ---Sourc file: " $File_FullName
-                   """" + $TestFileFullName +""""+ ","+""""+$File_FullName+"""" | Out-File -FilePath $LogPath -Append
-                }
+                    #Use Powershell's Test-Path cmdlet to verify file
+                    If( Test-Path -LiteralPath $TestFileFullName -PathType Leaf ){ }
+                    else{
+                       Write-Host "----Not found: " $TestFileFullName " ---Source file: " $File_FullName
+                       $_.Trim() + """" + $TestFileFullName + """" +  "," + """" + $File_FullName + """" | Out-File -FilePath $LogPath -Append
+                    }
+            }
          
         } # $Instructions | ForEach-Object
 
@@ -57,7 +70,7 @@ Function Verify-ResourcesInInstructionsFile {
 # > > > SCRIPT TUNING
 
 
-$FileType_RegExFilter       = "(\.json|\.vab|\.vaj|\.vam|\.vap|\.vmi|\.jpg|\.png|\.mp3|\.wav|\.ogg|\.m4a|\.webm|\.amc|\.assetbundle|\.scene|\.clist|\.cs|\.bvh)"
+$FileType_RegExFilter   = "(\.dll|\.json|\.vab|\.vaj|\.vam|\.vap|\.vmi|\.jpg|\.png|\.mp3|\.wav|\.ogg|\.m4a|\.webm|\.amc|\.assetbundle|\.scene|\.clist|\.cs|\.bvh)"
 
 # Update $vamRoot with the base install path for VAM.exe
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") } # don't use .\ for the root path for this script: it's kills path parsing above
@@ -71,7 +84,7 @@ $ScriptVersion  | Out-File -FilePath $LogPath -Append
 Get-Date -Format "yyyy/MM/dd HH:mm" | Out-File -FilePath $LogPath -Append
 
 
-"""" + "Missing" +""""+ ","+""""+"Source"+"""" | Out-File -FilePath $LogPath
+"""" + "Instruction" +""""+ ","+"""" + "TestedMissingFile" +""""+ ","+""""+"SourceFile"+"""" | Out-File -FilePath $LogPath
 
 # Instructions FOLDERS -  directories with Instructions files with pathing to be updated (files will not be moved)
 $InstructionsFilePaths = @(
