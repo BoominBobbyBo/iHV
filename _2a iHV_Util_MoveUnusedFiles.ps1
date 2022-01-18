@@ -37,7 +37,7 @@ If($blnLaunched -ne $true){
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + '\') }
 
 $ScriptName = 'iHV_Util_MoveUnusedFiles'
-$ScriptVersion = '1.0.5'
+$ScriptVersion = '1.0.6'
 $LogPath = ($PSScriptRoot + '\_2a ' + $ScriptName + '.log')
 $LogEntry = Get-Date -Format 'yyyy/MM/dd HH:mm' 
 
@@ -159,7 +159,7 @@ Write-Host ...Loaded: $LinksCSV.Count resource links
 
 $arrResourceFiles = @()
 $InstructionsDirs | ForEach-Object {
-    Get-ChildItem -Path ($vamRoot + $_) -File -Include *assetbundle,*.vmi,*.vam,*.jpg,*.png,*.mp3,*.mfa,*.ogg,*wav,*.webm -Recurse -Force -ErrorAction SilentlyContinue | Where-Object {$_ -inotlike ('*' + $RecycleBin +'*')} | Foreach-Object { $arrResourceFiles += $_.FullName }
+    Get-ChildItem -Path ($vamRoot + $_) -File -Include *assetbundle,*.scene,*.vmi,*.vam,*.jpg,*.png,*.mp3,*.mfa,*.ogg,*wav,*.webm -Recurse -Force -ErrorAction SilentlyContinue | Where-Object {$_ -inotlike ('*' + $RecycleBin +'*')} | Foreach-Object { $arrResourceFiles += $_.FullName }
 }
 
 Write-Host ...Found: $arrResourceFiles.Count Custom and Saves files.
@@ -185,14 +185,14 @@ $arrResourceFiles | ForEach-Object {
 
     # For each resource file
 
-    $File_FullPath     = ($vamRoot + $_).Replace('/','\') # Sample: C:\VAM\Custom\Sounds\boomboom.mp3
-    $File_VAMpath      = $_.Replace('\','/')  # sample: Custom/Sounds/boomboom.mp3
+    $File_FullPath     = $_.Replace('/','\') # Sample: C:\VAM\Custom\Sounds\boomboom.mp3
+    $File_VAMpath      = $_.Replace($vamRoot,'').Replace('\','/')  # sample: Custom/Sounds/boomboom.mp3
 
     # Write-host - RFP::: $File_VAMpath
     # Write-host - Matched:: ($LinksCSV.Link_RelPath -icontains $File_VAMpath)
     # Write-Host - PreviouslyMoved:: ($arrMovedFiles -icontains $File_FullPath)
 
-    If($arrMovedFiles -icontains $File_FullPath){Return} # file has already been moved
+    If($arrMovedFiles -icontains [regex]::escape($File_VAMpath)){Return} # file has already been moved
     ElseIf($LinksCSV.Link_RelPath -icontains $File_VAMpath){Return}
     Else{
         # if not in InstructionLinks....
@@ -204,10 +204,10 @@ $arrResourceFiles | ForEach-Object {
 
             # .VMB files are not called directly by instruction files, assume .VMI + .VMB
 
-            $vmb = $File_FullPath -iReplace('.vmi', '.vmb')
-            $jpg = $File_FullPath -iReplace('.vmi', '.jpg')
-            $png = $File_FullPath -iReplace('.vmi', '.png')
-            
+            $vmb = $File_FullPath.Replace('.vmi', '.vmb')
+            $jpg = $File_FullPath.Replace('.vmi', '.jpg')
+            $png = $File_FullPath.Replace('.vmi', '.png')
+
             $type = "Morph"
             $Error.Clear()
                 
