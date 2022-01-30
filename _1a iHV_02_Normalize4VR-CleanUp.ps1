@@ -30,7 +30,7 @@ $blnCleanIdiotContent  = $true # Expand the Idiots array to known offenders. Kee
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") } 
 
 $ScriptName = "iHV_NormalizeVAM4VR_CleanUp"
-$ScriptVersion = "1.0.0"
+$ScriptVersion = "1.0.2"
 $LogPath = ".\_1a " + $ScriptName + ".log"
 $LogEntry = Get-Date -Format "yyyy/MM/dd HH:mm" 
 
@@ -50,7 +50,7 @@ $ContentFilePaths = @(
   "Custom/Clothing/Male/"
   "Custom/Hair/Female/"
   "Custom/Hair/Male/"
-  #"Custom/SubScene/"
+  "Custom/SubScene/"
   #"Saves/scene/" # DO NOT CULL CONTENT IN THE SAVES NOR PERSON FOLDERS
   #"Saves/Person/"
   )
@@ -151,8 +151,10 @@ $NativeCustomFolders = @(
 $Exceptions = @(
   "assetName" # Required: assetName is a JSON node that we don't want to update by mistake when updating asset paths
   "BobB_" # optional: my author name - change to yours
+  "Builtin" # Required: native folder
   "2021_clothes_pack_by_Daz" # optional: clothing author who does not use unique file names
   "Custom/Assets/Audio/RT_LipSync" # required for lip sync plugin RT_LipSync
+  "Atom/Idiots" # required for iHV
   "Custom/Scripts" # Required: scripts have embedded paths that would be disrupted by iHV
   "E-Motion" # Required for this popular plugin
   "Electric Dreams" # optional: favorite clothing author
