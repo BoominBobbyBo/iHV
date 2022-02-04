@@ -1,38 +1,32 @@
 <#
-
 I Hate VARS - Normalize Content for VR
-
   Remove idiosynchracies that 
   create duplicates, slow VAM down, make it harder to find things, and reduce VAM's overall stability
-
   Sets behavior preferences (e.g., Worldscale, default plugins, autoexpressions, etc.) 
-
 
 WARNING:
  - Directories or files that you do not wish to change must be added to the >>> $Exceptions <<< array 
- - Change >>> $blnNormalizeTextures <<< to true to normalize/consolidate textures. Texture normalization is optional; while beneficial in some ways it will impact game experience
+ - Change >>> $blnNormalizeTextures <<< to true to normalize/consolidate textures. Not recommended: it will impact game experience
+ - Changes to the Normalize function must be matched with a change to the Update function, and vice versa
  - Backup you fools, backup!
 
 Functions:
-1. Normalize Directories
+1. Normalize Resource Files
  - Normalizes: morphs, subscenes, hair, clothing. Optional: textures
  - Doesn't delete any content (the optional "clean up" script does that)
  - Resources are consolidated into a "iHV_Normalized" folder
  - You can use the $Exceptions array to exempt any of your favorite content
-
-2. Update Files
+2. Update Instruction Files
  - Removes VAR paths from content files
  - Updates content files to use the normalized VAM folders
  - Deploys personal preferences for VR: lighting, plugins, person behaviors
  - You can use the $Exceptions array to exempt any of your in place content
-
 Glossary:
  - idio paths: subfolders where duplicate and unused content hide. E.g. \Custom\Assets\Audio\!CustomFilesThatIDuplicatedAndPlacedHereSoKnowOneKnowsIcopiedThierShyte
  - idiot paths: unconventional folders where duplicate and unused content hides E.g. \Custom\TX (which should go under \Custom\Assets\Audio)
  - Instruction files: core instruction files for VAM: .JSON, .VAJ, .VAP
  - Resource files: files consumed by content files: .JPG, .PNG, .CS, .Assetbundle, .VMI, .VAB, etc.
  - Normalize: reduce to 1 instance (i.e. de-duplicate; 'dedup')
-
 #>
 
 write-host
@@ -71,7 +65,7 @@ Function Normalize-ResourceDir {
                 $ResourceFile = $_.Name
                 #write-Host "----RF: " $ResourceFile
 
-                # Type cases
+                # File type cases
 
                 If( $ResourceFile -imatch "\.assetbundle" -Or $ResourceFile -ilike "*.scene" ){
                     # write-host ".....Move asset file to Custom\AssetsiHV_Normalized\"
@@ -88,16 +82,16 @@ Function Normalize-ResourceDir {
                     $LogEntry + ".....Move WEBM file: "  + $ResourceFile | Out-File -FilePath $LogPath -Append
                     $_ | Move-Item -Destination ($vamRoot + "Custom\Sounds\WEBM\iHV_Normalized\") -Force -ErrorAction SilentlyContinue
                 }
-                ElseIf( $ResourceFile -ilike "*.cs" -or $ResourceFile -ilike "*.clist" ){
+                ElseIf( $ResourceFile -ilike "*.cs" -or $ResourceFile -ilike "*.clist" ){ # Clists have hard-coded paths that would need to be re-written; task item
                     # Custom\Scripts is an exception, so that folder will not be normalized
                     # write-host ".....Move Script file to Custom\Scripts\"
-                    $LogEntry + ".....Move Script file: "  + $ResourceFile | Out-File -FilePath $LogPath -Append
-                    $_ | Move-Item -Destination ($vamRoot + "Custom\Scripts\") -Force -ErrorAction SilentlyContinue
+                    #$LogEntry + ".....Move Script file: "  + $ResourceFile | Out-File -FilePath $LogPath -Append
+                    #$_ | Move-Item -Destination ($vamRoot + "Custom\Scripts\") -Force -ErrorAction SilentlyContinue
                 }
 
                 # Idiot cases
 
-                # for idiot folders, there is a discerned TargetPath (otherwise the variable is null)
+                # for idiot cases (folders), there is a provided $TargetPath value is passed to the Update function
                 ElseIf($TargetPath -ilike "*Custom\*"){
                     $LogEntry + ".....Move Idiot: " + $_.FullName + " to " + ($vamRoot + $TargetPath.Replace("/","\")) | Out-File -FilePath $LogPath -Append
                     $_ | Move-Item -Destination ($vamRoot + $TargetPath.Replace("/","\")) -ErrorAction SilentlyContinue
@@ -108,11 +102,12 @@ Function Normalize-ResourceDir {
                     $_ | Move-Item -Destination ($vamRoot + "Custom\Atom\Person\Textures\iHV_Normalized\") -Force -ErrorAction SilentlyContinue
                 } 
 
-
-                # Conventional cases
+                # Idio cases
 
                 ElseIf( $ResourceFullName -ilike "*Saves\*" ){
+
                     # trap all Saves\ content here to avoid them falling tinto the default condition below
+                    # only image files are processed here; .cs files along with other resources are processed above
 
                     If($ResourceFullName -imatch "(\.jpg|\.png)"){
 
@@ -128,6 +123,8 @@ Function Normalize-ResourceDir {
                     }
                 }
 
+                # Conventional cases
+                
                 Else{
                     # write-host ".....Move efile: " $_.FullName " to " ($vamRoot + $ResourceDir + "iHV_Normalized\") 
                     $LogEntry + ".....Move efile: " + $_.FullName + " to " + ($vamRoot + $ResourceDir + "iHV_Normalized\") | Out-File -FilePath $LogPath -Append
@@ -232,8 +229,6 @@ Function Update-InstructionFile {
                 $IsIdiotPath = $false
                 If($blnWatchForAllIdiots -eq $true){ $IdiotPaths | ForEach-Object { If( $Line -imatch ($_.IdiotPath.Trim("/") ) ) { $IsIdiotPath = $true } } }
 
-#                $_ -inotmatch "/iHV_Normalized/" -and $_ -imatch $FileType_RegExFilter
-
                 If($ExceptionFound -eq $false -Or $IsIdiotPath -eq $true ){
 
                     $NodeName  = ""
@@ -250,44 +245,49 @@ Function Update-InstructionFile {
 
                     # Parse the JSON value into a path + file name
 
-                    If($LastSlash -ge 3){ # nominal path
+                    If($LastSlash -ge 3 -and $NodeValue -notmatch "\./"){ # this is a nominal path
                     
                         $vamPath   = ($NodeValue.Substring( 0, $LastSlash ).Trim() + "/") 
                         $FileName  = $NodeValue.Replace($vamPath,"")
-                    
+
                     }
-                    Else{ # no path, just a file name
+                    Else{ # no path: either a file name or rel subpath e.g. ./file.xxx or ./texture/file.xxx
+
+                        # normalize the path
 
                         $FileName  = $NodeValue.Trim().Trim(".").Trim("/")
+
                         $vamPath  = ($File_FullName.Substring(0,$File_FullName.LastIndexOf("\"))  + "/") # set path to the directory in which the instruction file is located
                         $vamPath  = $vamPath.Replace($vamRoot, "").Replace("\","/")
+
                         $Exceptions | ForEach-Object{ If( $vamPath -ilike ("*"+$_+"*") ){ Return } }
+
+                        # 3 idio cases to consider: if saves and image file, if saves and .cs, if relative path
 
                         If( $vamPath -imatch "Saves/scene/" -and $FileName -match "(\.jpg|\.png)" ){
 
-                            # check to see if the file is a thumbnail 
+                            # check to see if the image file is a thumbnail 
                             #    pull the file extension off the path
                             $rootPathName = $vamRoot + $vamPath + $FileName.Substring(0, $FileName.lastIndexOf(".") ) 
 
-                            if ( (test-path ($rootPathName + ".json")) -or (test-path ($rootPathName + ".vap")) -or (test-path ($rootPathName + ".vaj")) ){ Return } # it's a thumbnail, don't move
-                        
-                            Else{ $vamPath = "Custom/Atom/Person/Textures/iHV_Normalized/" }
-                
+                            if ( (test-path ($rootPathName + ".json")) -or (test-path ($rootPathName + ".vap")) -or (test-path ($rootPathName + ".vaj")) ){ Return } # it's a thumbnail, don't move                      
+                            Else{$vamPath = "Custom/Atom/Person/Textures/iHV_Normalized/"}                
                         }
 
-                        If( $vamPath -imatch "Saves/scene/" -and $FileName -match "(\.cs|\.clist)" ){
+                        # ElseIf( $vamPath -imatch "Saves/scene/" -and $FileName -match "(\.cs|\.clist)" ){$vamPath = "Custom/Scripts/"}
+                                # Clists have hard-coded paths that would need to be re-written; task item
 
-                            # check to see if the file is a thumbnail 
-                            #    pull the file extension off the path
-                            $rootPathName = $vamRoot + $vamPath + $FileName.Substring(0, $FileName.lastIndexOf(".") ) 
-
-                            if ( (test-path ($rootPathName + ".json")) -or (test-path ($rootPathName + ".vap")) -or (test-path ($rootPathName + ".vaj")) ){ Return } # it's a thumbnail, don't move
+                        ElseIf($vamPath -imatch "\./"){
+             
+                            $vamPath = ($File_FullName.Substring(0,$File_FullName.LastIndexOf("\"))  + "/")
+                            $vamPath = $vamPath.Replace($vamRoot,"").Replace("\","/")
                         
-                            Else{ $vamPath = "Custom/Scripts/" }
-                
-                        }
+                        } # e.g. remove ./ or ./texture/ from paths
 
                         $blnWasTheFileChanged = $true
+
+                        # port the normalized path into the instructions feed
+
                         $NewLine = $Line.Replace($NodeValue, $vamPath + "/" + $FileName)
                         $Instructions = $Instructions.Replace( $Line, $NewLine )
                     
@@ -577,7 +577,7 @@ $AuthorLighting_RegExFilter = "(Alpaca|Androinz|C\&G|ClubJulze|KittyMocap|Nial|N
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") } # don't use .\ for the root path for this script: it's kills path parsing above
 
 $ScriptName            = "iHV_Normalize4VR"
-$ScriptVersion         = "1.0.3"
+$ScriptVersion         = "1.0.4"
 $LogPath               = ($PSScriptRoot + "\_1a " + $ScriptName + ".log")
 $LogEntry              = Get-Date -Format "yyyy/MM/dd HH:mm" 
 
@@ -811,11 +811,9 @@ $IdiotPaths | ForEach-Object{
 <#
  
  UPDATE CONTENT FILES
-
  Change resource pointers to reflect the new, normalized locations
  .vaj files point to texture files
  .vam files don't seem to hold any paths
-
 #>
 
 $PresetDirs | Foreach-Object { 
@@ -863,35 +861,8 @@ $arrBigFiles | Where-Object { $_ -inotlike "*Unity*" -and $_ -inotlike "*VaM*.ex
     If($blnLaunched -ne $true){ Read-Host -Prompt "Press Enter to exit" }
 
 <#
-
 bugs:
 
-Z:\iHV_Vam\Saves\scene\misc_mf\aMisc\The Night Queen\janie
-
-SubScene path Custom/SubScene/iHV_Normalized/Light_Rig_13_Wide.json is not in correct form
-
-Current json in Janie:
-          "id": "SubScene",
-          "storePath": "Custom/SubScene/iHV_Normalized/Light_Rig_13_Wide.json"
-
-what should it be?
-
-==========
-
-Error during texture load: Custom/Hair/Female/RenVR/Scalp Parted (REN)/Hair Parted Side (light).png is not valid
-
-- that .png isn't in the scene, likely in the subscene .json file
-
-========================================================
-
-
-Bairmor1984: all his images are in saves folder. any appearance file is hard coded to that saves/ihv_normalized folder that doesn't exist.
-issaac too.
-
-Need to normalize scenes to port that content to the same place every time, so appearances work.
-Exception: Need to keep the scene .jpg in the saves folder
- 
-
-
+# Clists have hard-coded paths that would need to be re-written; task item
 
 #>
