@@ -67,22 +67,22 @@ Function Normalize-ResourceDir {
 
                 # File type cases
 
-                If( $ResourceFile -imatch "\.assetbundle" -Or $ResourceFile -ilike "*.scene" ){
+                If( $ResourceFile -match "\.assetbundle" -Or $ResourceFile -ilike "*.scene" ){
                     # write-host ".....Move asset file to Custom\AssetsiHV_Normalized\"
                     $LogEntry + ".....Move asset file: " + $ResourceFile | Out-File -FilePath $LogPath -Append
                     $_ | Move-Item -Destination ($vamRoot + "Custom\Assets\iHV_Normalized\") -Force -ErrorAction SilentlyContinue
                 }
-                ElseIf( $ResourceFile -imatch "\.mp3" -Or $ResourceFile -imatch "\.ogg" -Or $ResourceFile -imatch "\.wav" -Or $ResourceFile -imatch ".bvh") {
+                ElseIf( $ResourceFile -match "(\.mp3|\.ogg|\.wav|\.bvh)") {
                     #write-host ".....Move media file to Custom\Sounds\iHV_Normalized\"
                     $LogEntry + ".....Move media file: " + $ResourceFile | Out-File -FilePath $LogPath -Append
                     $_ | Move-Item -Destination ($vamRoot + "Custom\Sounds\iHV_Normalized\") -Force -ErrorAction SilentlyContinue
                 }
-                ElseIf( $ResourceFile -imatch "\.webm" ){
+                ElseIf( $ResourceFile -match "\.webm" ){
                     # write-host ".....Move WEBM file to Custom\Assets\Audio\WEBM\iHV_Normalized\"
                     $LogEntry + ".....Move WEBM file: "  + $ResourceFile | Out-File -FilePath $LogPath -Append
                     $_ | Move-Item -Destination ($vamRoot + "Custom\Sounds\WEBM\iHV_Normalized\") -Force -ErrorAction SilentlyContinue
                 }
-                ElseIf( $ResourceFile -ilike "*.cs" -or $ResourceFile -ilike "*.clist" ){ # Clists have hard-coded paths that would need to be re-written; task item
+                ElseIf( $ResourceFile -match "(\.cs|\.clist)" ){ # Clists have hard-coded paths that would need to be re-written; task item
                     # Custom\Scripts is an exception, so that folder will not be normalized
                     # write-host ".....Move Script file to Custom\Scripts\"
                     #$LogEntry + ".....Move Script file: "  + $ResourceFile | Out-File -FilePath $LogPath -Append
@@ -92,11 +92,11 @@ Function Normalize-ResourceDir {
                 # Idiot cases
 
                 # for idiot cases (folders), there is a provided $TargetPath value is passed to the Update function
-                ElseIf($TargetPath -ilike "*Custom\*"){
+                ElseIf($TargetPath -match "Custom"){
                     $LogEntry + ".....Move Idiot: " + $_.FullName + " to " + ($vamRoot + $TargetPath.Replace("/","\")) | Out-File -FilePath $LogPath -Append
                     $_ | Move-Item -Destination ($vamRoot + $TargetPath.Replace("/","\")) -ErrorAction SilentlyContinue
                 }
-                ElseIf( $ResourceFullName -ilike "*\texture*\*" -and $blnNormalizeTextures -eq $true ){
+                ElseIf( $blnNormalizeTextures -eq $true -and $ResourceFullName -ilike "*\texture*\*" ){
                     # write-host ".....Move texture file to Custom\Atom\Person\Textures\iHV_Normalized\"
                     $LogEntry + ".....Move texture file: " + $ResourceFile | Out-File -FilePath $LogPath -Append
                     $_ | Move-Item -Destination ($vamRoot + "Custom\Atom\Person\Textures\iHV_Normalized\") -Force -ErrorAction SilentlyContinue
@@ -104,12 +104,12 @@ Function Normalize-ResourceDir {
 
                 # Idio cases
 
-                ElseIf( $ResourceFullName -ilike "*Saves\*" ){
+                ElseIf( $ResourceFullName -match "Saves\\" ){
 
                     # trap all Saves\ content here to avoid them falling tinto the default condition below
-                    # only image files are processed here; .cs files along with other resources are processed above
+                    # only image scene\files are processed here; .cs files along with other resources are processed above
 
-                    If($ResourceFullName -imatch "(\.jpg|\.png)"){
+                    If($ResourceFullName -match "Saves\\scene" -and $ResourceFullName -match "(\.jpg|\.png)"){
 
                         #pull the file extension off the path
                         $rootPathName = $ResourceFullName.Substring(0, $ResourceFullName.lastIndexOf(".") ) 
@@ -222,7 +222,7 @@ Function Update-InstructionFile {
             # ---------------------------> Update to normalized Paths
 
                 $ExceptionFound = $false
-                $Exceptions | ForEach-Object{ If( $Line -ilike ("*"+$_+"*") ){ $ExceptionFound = $true } }
+                $Exceptions | ForEach-Object{ If( $Line -imatch $_ ){ $ExceptionFound = $true } }
                 If($Line -imatch "Custom/Atom/" -And $Line -inotmatch "Custom/Atom/Person/"){$ExceptionFound = $true} # For Custom/Atom: Only process Custom/Atom/Person/
 
                 
@@ -255,12 +255,15 @@ Function Update-InstructionFile {
 
                         # normalize the path
 
-                        $FileName  = $NodeValue.Trim().Trim(".").Trim("/")
+                        $FileName  = $NodeValue.Trim()
+                        If($FileName -match "\./"){ 
+                            $replaceMe = $FileName.Substring(0,$FileName.LastIndexOf("/") + 1)
+                            $FileName = $FileName.Replace($replaceMe,"")
+                        }
 
-                        $vamPath  = ($File_FullName.Substring(0,$File_FullName.LastIndexOf("\"))  + "/") # set path to the directory in which the instruction file is located
+                        $vamPath  = $File_FullName.Substring(0,$File_FullName.LastIndexOf("\")) # set path to the directory in which the instruction file is located
                         $vamPath  = $vamPath.Replace($vamRoot, "").Replace("\","/")
 
-                        $Exceptions | ForEach-Object{ If( $vamPath -ilike ("*"+$_+"*") ){ Return } }
 
                         # 3 idio cases to consider: if saves and image file, if saves and .cs, if relative path
 
@@ -277,20 +280,13 @@ Function Update-InstructionFile {
                         # ElseIf( $vamPath -imatch "Saves/scene/" -and $FileName -match "(\.cs|\.clist)" ){$vamPath = "Custom/Scripts/"}
                                 # Clists have hard-coded paths that would need to be re-written; task item
 
-                        ElseIf($vamPath -imatch "\./"){
-             
-                            $vamPath = ($File_FullName.Substring(0,$File_FullName.LastIndexOf("\"))  + "/")
-                            $vamPath = $vamPath.Replace($vamRoot,"").Replace("\","/")
-                        
-                        } # e.g. remove ./ or ./texture/ from paths
-
                         $blnWasTheFileChanged = $true
 
                         # port the normalized path into the instructions feed
 
                         $NewLine = $Line.Replace($NodeValue, $vamPath + "/" + $FileName)
                         $Instructions = $Instructions.Replace( $Line, $NewLine )
-                    
+
                     }
                     
                     # Write-Host -------FN:$FileName::::FP:$vamPath
@@ -307,17 +303,14 @@ Function Update-InstructionFile {
 
                     # consider idiot cases before swapping out idio paths for conventional paths
                         
-                        ElseIf( $IsIdiotPath -eq $true){ $IdiotPaths | ForEach-Object {
+                        ElseIf( $IsIdiotPath -eq $true -and $vamPath -inotmatch "/texture" -and $blnNormalizeTextures -eq $true){ $IdiotPaths | ForEach-Object {
 
-                                If( $vamPath -imatch "/texture" -and $blnNormalizeTextures -eq $false ){Return}
-                                Else{
                                     $NewLine = $Line -ireplace $vamPath, ($_.TargetPath)                               
                                     $Instructions = $Instructions -ireplace $Line, $NewLine
-                                }
                             } 
                         }
 
-                        ElseIf( $vamPath -ilike "*/texture*" -and $blnNormalizeTextures -eq $true ){ $Instructions = $Instructions -ireplace [regex]::Escape(($vamPath + $FileName)), ("Custom/Atom/Person/Textures/iHV_Normalized/" + $FileName) }
+                        ElseIf( $vamPath -imatch "/texture" -and $blnNormalizeTextures -eq $true ){ $Instructions = $Instructions -ireplace [regex]::Escape(($vamPath + $FileName)), ("Custom/Atom/Person/Textures/iHV_Normalized/" + $FileName) }
                         
                     # consider special cases before swapping out idio paths for conventional paths
                         
@@ -577,7 +570,7 @@ $AuthorLighting_RegExFilter = "(Alpaca|Androinz|C\&G|ClubJulze|KittyMocap|Nial|N
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") } # don't use .\ for the root path for this script: it's kills path parsing above
 
 $ScriptName            = "iHV_Normalize4VR"
-$ScriptVersion         = "1.0.4"
+$ScriptVersion         = "1.0.5"
 $LogPath               = ($PSScriptRoot + "\_1a " + $ScriptName + ".log")
 $LogEntry              = Get-Date -Format "yyyy/MM/dd HH:mm" 
 
