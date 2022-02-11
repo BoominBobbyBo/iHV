@@ -1,37 +1,38 @@
 <#
 I Hate VARS - Normalize Content for VR
-  Remove idiosynchracies that 
-  create duplicates, slow VAM down, make it harder to find things, and reduce VAM's overall stability
-  Sets behavior preferences (e.g., Worldscale, default plugins, autoexpressions, etc.) 
+  Remove idiosynchracies that create duplicates, slow VAM down, make it harder to find things, and reduce VAM's overall stability
+  And set in-game preferences (e.g., Worldscale, default plugins, autoexpressions, etc.) 
 
 WARNING:
  - Directories or files that you do not wish to change must be added to the >>> $Exceptions <<< array 
- - Change >>> $blnNormalizeTextures <<< to true to normalize/consolidate textures. Not recommended: it will impact game experience
  - Changes to the Normalize function must be matched with a change to the Update function, and vice versa
  - Backup you fools, backup!
 
 Functions:
 1. Normalize Resource Files
- - Normalizes: morphs, subscenes, hair, clothing. Optional: textures
- - Doesn't delete any content (the optional "clean up" script does that)
- - Resources are consolidated into a "iHV_Normalized" folder
+ - Move resource files into a single folder (by type): morphs, subscenes, hair, clothing
+ - Doesn't delete duplicate content (the optional "clean up" script does that)
  - You can use the $Exceptions array to exempt any of your favorite content
+
 2. Update Instruction Files
- - Removes VAR paths from content files
- - Updates content files to use the normalized VAM folders
- - Deploys personal preferences for VR: lighting, plugins, person behaviors
- - You can use the $Exceptions array to exempt any of your in place content
+ - Remove VAR prefixes from paths so the files can be found in the Windows file system
+ - Update paths to the normalized VAM folders (i.e., VAM\Custom and VAM\Saves))
+ - Deploy personal preferences for VR: lighting, plugins, person behaviors
+ - You can use the $Exceptions array to exempt any of your in-place content
+
 Glossary:
  - idio paths: subfolders where duplicate and unused content hide. E.g. \Custom\Assets\Audio\!CustomFilesThatIDuplicatedAndPlacedHereSoKnowOneKnowsIcopiedThierShyte
  - idiot paths: unconventional folders where duplicate and unused content hides E.g. \Custom\TX (which should go under \Custom\Assets\Audio)
  - Instruction files: core instruction files for VAM: .JSON, .VAJ, .VAP
  - Resource files: files consumed by content files: .JPG, .PNG, .CS, .Assetbundle, .VMI, .VAB, etc.
  - Normalize: reduce to 1 instance (i.e. de-duplicate; 'dedup')
+
 #>
 
 write-host
 write-host ******************** START: NORMALIZE CONTENT  ************************
 write-host
+
 
 Function Normalize-ResourceDir {
 
@@ -151,7 +152,7 @@ Function Update-InstructionFile {
 
         If($blnProcessRootFolders -eq $false -and $File_FullName -imatch "iHV_Normalized"){Return}
 
-        # write-host $ScriptName--UPDATE: $File_FullName
+        # write-host --UPDATE KICKOFF: $File_FullName
 
         # Instruction FILES - Get the raw file content to update ----------------------------------------->
         $Instructions = [System.IO.File]::ReadAllLines($File_FullName) # .NET function (requires .NET) (Get-Content -raw $File_FullName)
@@ -169,93 +170,115 @@ Function Update-InstructionFile {
         # IDIO PATHS
         # Update $Instructions\resource paths by a) establishing what the path is and b) replacing it with a normalized one
 
-        $Instructions | Where-Object { $_ -inotmatch "/iHV_Normalized/" -and $_ -imatch $FileType_RegExFilter } | ForEach-Object { # this is all about files paths.
+        $Instructions | Where-Object { $_ -imatch $FileType_RegExFilter } | ForEach-Object { # this is all about files paths.
 
             $Line = ""
             $Line = $_ #.ToLower() # line from the file being read-in
 
             # ---------------------------> Remove VAR Paths
 
-            $NewLine   = ""
-            $NewValue  = ""
-            $NodeName  = ""
-            $NodeValue = ""
-            $RemoveMe  = ""
+            If($Line -imatch "(:/|presetName)"){
 
-            # break the line down to Name and Value pairs
-            $NodeName  = $Line.Substring(0, $Line.indexOf(":") + 3 ).Trim()
+                $NewLine   = ""
+                $NewValue  = ""
+                $NodeName  = ""
+                $NodeValue = ""
+                $RemoveMe  = ""
 
-            If($NodeName.Length -gt 0){ 
+                # break the line down to Name and Value pairs
 
-                $NodeValue = $Line.Replace($NodeName,"")
-                $NodeValue = $NodeValue.Trim().Trim(",").Trim("""") 
+                # NodeName
+                $NodeName  = $Line.Substring(0, $Line.indexOf(":") + 3 ).Trim()
 
-                # Revmove VAR prefixes from JSON paths to Prefix resources     
-                If($NodeName.indexOf("presetName") -ge 0 ){
+                If($NodeName.Length -gt 0){ 
 
-                    #write-host PresetName found:::::$Line
+                    #NodeValue
+                    $NodeValue = $Line.Replace($NodeName,"")
+                    $NodeValue = $NodeValue.Trim().Trim(",").Trim("""") 
 
-                    If($NodeValue.indexOf(":") -ge 0){
-                        $blnWasTheFileChanged = $true 
+                    # Case 1: Revmove VAR prefixes from JSON paths to Prefix resources
+                        
+                    If($NodeName -match "presetName"){
+
+                        #write-host PresetName found:::::$Line
+
+                        If($NodeValue -match ":"){
+                            $blnWasTheFileChanged = $true 
                     
-                        $RemoveMe = $NodeValue.substring( 0, $NodeValue.indexOf(":") + 1 )
-                        $Instructions = $Instructions -ireplace $NodeValue, ( $NodeValue.Replace($RemoveMe, "") )
-                    }
-                } 
+                            $RemoveMe = $NodeValue.substring( 0, $NodeValue.indexOf(":") + 1 )
+                            $Instructions = $Instructions -ireplace $NodeValue, ( $NodeValue.Replace($RemoveMe, "") )
+                        }
+
+                    } # if preset
                 
-                # Remove VAR prefixes from general JSON paths
-                Elseif($NodeValue -imatch ":/"){
-                    $blnWasTheFileChanged = $true
-
-                    $StartIndex = 1                     
-                    $EndIndex = $NodeValue.indexOf("/") + 1
-                    If($EndIndex -le 1){$LogEntry + " ERROR: VAR prefix. " + $Line + ", FILE:" + $File_FullName | Out-File -FilePath $LogPath -Append}
+                    # Case 2: Remove VAR prefixes from general JSON paths
                     
-                    $VARprefix = $NodeValue.SubString(0, $EndIndex).Trim() # e.g. BallerDev.lovescene.69:/
-                    $Instructions = $Instructions -ireplace [regex]::Escape($VARprefix), ""
-                    $Line = $Line -ireplace [regex]::Escape($VARprefix), ""
+                    Elseif($NodeValue -imatch ":/"){
+                        $blnWasTheFileChanged = $true
 
-                } # if($Line -match "/custom")
+                        $StartIndex = 1                     
+                        $EndIndex = $NodeValue.indexOf("/") + 1
+                        If($EndIndex -le 1){$LogEntry + " ERROR: VAR prefix. " + $Line + ", FILE:" + $File_FullName | Out-File -FilePath $LogPath -Append}
+                    
+                        $VARprefix = $NodeValue.SubString(0, $EndIndex).Trim() # e.g. BallerDev.lovescene.69:/
+                        $Instructions = $Instructions -ireplace [regex]::Escape($VARprefix), ""
+                        $Line = $Line -ireplace [regex]::Escape($VARprefix), ""
+
+                    } # Elseif($Line -match ":/")
+
+                } # if NodeName gt 0
+
+            } #if line match :/ + presetname
 
             # ---------------------------> End Remove VAR Path Prefixes
 
             # ---------------------------> Update to normalized Paths
 
-                $ExceptionFound = $false
-                $Exceptions | ForEach-Object{ If( $Line -imatch $_ ){ $ExceptionFound = $true } }
-                If($Line -imatch "Custom/Atom/" -And $Line -inotmatch "Custom/Atom/Person/"){$ExceptionFound = $true} # For Custom/Atom: Only process Custom/Atom/Person/
+            $ExceptionFound = $false
+            $Exceptions | ForEach-Object{ If( $Line -imatch $_ ){ $ExceptionFound = $true } }
+            If($Line -imatch "Custom/Atom/" -And $Line -inotmatch "Custom/Atom/Person/"){$ExceptionFound = $true} # For Custom/Atom: Only process Custom/Atom/Person/
 
+            $IsIdiotPath = $false
+            If($blnWatchForAllIdiots -eq $true){ $IdiotPaths | ForEach-Object { If( $Line -imatch ($_.IdiotPath.Trim("/") ) ) { $IsIdiotPath = $true } } }
+
+            # Write-host --- ExceptionFound $ExceptionFound IsIdiotPath $IsIdiotPath
+
+            If($ExceptionFound -eq $false -Or $IsIdiotPath -eq $true ){
+
+                $NodeName  = ""
+                $NodeValue = ""
+                $LastSlash = 0
+                $FileName  = ""
+                $vamPath  = ""
+
+            # Parse the JSON value pair into name + value
+
+                $NodeName  = $Line.Substring(0, $Line.indexOf(":") + 3 ).Trim()
                 
-                $IsIdiotPath = $false
-                If($blnWatchForAllIdiots -eq $true){ $IdiotPaths | ForEach-Object { If( $Line -imatch ($_.IdiotPath.Trim("/") ) ) { $IsIdiotPath = $true } } }
+                If($NodeName.length -eq 0){
+                    Write-Host ---NodeName fault: $Line
+                    Return
+                } # not a viable JSON path
+                
+                $NodeValue = $Line.Replace($NodeName,"").Trim().Trim(",").Trim("""") 
+                $LastSlash = $NodeValue.lastindexof("/")
 
-                If($ExceptionFound -eq $false -Or $IsIdiotPath -eq $true ){
+            # 2 kinds of paths: nominal & relative. If Relative, then "nominalize" it with a full path.
 
-                    $NodeName  = ""
-                    $NodeValue = ""
-                    $LastSlash = 0
-                    $FileName  = ""
-                    $vamPath  = ""
-
-                    # Parse the JSON value pair into name + value
-
-                    $NodeName  = $Line.Substring(0, $Line.indexOf(":") + 3 ).Trim()
-                    $NodeValue = $Line.Replace($NodeName,"").Trim().Trim(",").Trim("""") 
-                    $LastSlash = $NodeValue.lastindexof("/")
-
-                    # Parse the JSON value into a path + file name
-
-                    If($LastSlash -ge 3 -and $NodeValue -notmatch "\./"){ # this is a nominal path
+                # Nominal path
+                If($LastSlash -ge 3 -and $NodeValue -notmatch "\./"){ # this is a nominal path
                     
                         $vamPath   = ($NodeValue.Substring( 0, $LastSlash ).Trim() + "/") 
                         $FileName  = $NodeValue.Replace($vamPath,"")
 
                     }
-                    Else{ # no path: either a file name or rel subpath e.g. ./file.xxx or ./texture/file.xxx
 
-                        # normalize the path
+                # Relative path
+                Else{
+                        # nominalize the relative path
 
                         $FileName  = $NodeValue.Trim()
+
                         If($FileName -match "\./"){ 
                             $replaceMe = $FileName.Substring(0,$FileName.LastIndexOf("/") + 1)
                             $FileName = $FileName.Replace($replaceMe,"")
@@ -264,8 +287,8 @@ Function Update-InstructionFile {
                         $vamPath  = $File_FullName.Substring(0,$File_FullName.LastIndexOf("\")) # set path to the directory in which the instruction file is located
                         $vamPath  = $vamPath.Replace($vamRoot, "").Replace("\","/")
 
-
-                        # 3 idio cases to consider: if saves and image file, if saves and .cs, if relative path
+                        
+                        # 2 idio cases to consider: if saves and image file, if saves and .cs, if relative path
 
                         If( $vamPath -imatch "Saves/scene/" -and $FileName -match "(\.jpg|\.png)" ){
 
@@ -287,13 +310,14 @@ Function Update-InstructionFile {
                         $NewLine = $Line.Replace($NodeValue, $vamPath + "/" + $FileName)
                         $Instructions = $Instructions.Replace( $Line, $NewLine )
 
-                    }
-                    
-                    # Write-Host -------FN:$FileName::::FP:$vamPath
-                    If($FileName.Length -ge 5){
+                    } # Else rel path
+
+                # Normalize the path
+
+                If($FileName.Length -ge 5){
                         $blnWasTheFileChanged = $true
   
-                     # consider type cases before swapping out idio paths for conventional paths
+                    # consider type cases before swapping out idio paths for conventional paths
 
                         If( $FileName -imatch "(sample\.wav|PostMagic)"){ $Instructions = $Instructions -ireplace [regex]::Escape(($vamPath + $FileName)), ("iHV_Normalize4VR_ValueRemoved") }
                          
@@ -303,18 +327,25 @@ Function Update-InstructionFile {
 
                     # consider idiot cases before swapping out idio paths for conventional paths
                         
-                        ElseIf( $IsIdiotPath -eq $true -and $vamPath -inotmatch "/texture" -and $blnNormalizeTextures -eq $true){ $IdiotPaths | ForEach-Object {
+                        ElseIf( $IsIdiotPath -eq $true){ $IdiotPaths | ForEach-Object {
 
                                     $NewLine = $Line -ireplace $vamPath, ($_.TargetPath)                               
-                                    $Instructions = $Instructions -ireplace $Line, $NewLine
-                            } 
-                        }
+                                    $Instructions = $Instructions -ireplace [regex]::Escape($Line), $NewLine
+
+                            } # ForEach
+                        } # ElseIf
 
                         ElseIf( $vamPath -imatch "/texture" -and $blnNormalizeTextures -eq $true ){ $Instructions = $Instructions -ireplace [regex]::Escape(($vamPath + $FileName)), ("Custom/Atom/Person/Textures/iHV_Normalized/" + $FileName) }
                         
                     # consider special cases before swapping out idio paths for conventional paths
-                        
-                        
+
+                        ElseIf( $vamPath -imatch "Saves/scene/" -and $FileName -match "(\.jpg|\.png)" ){ $Instructions = $Instructions -ireplace ($vamPath + $FileName), ("Custom/Atom/Person/Textures/iHV_Normalized/" + $FileName) }
+
+                        <# If( $vamPath -imatch "Saves/scene/" -and $FileName -match "(\.cs|\.clist)" ){ 
+                            $Instructions = $Instructions -ireplace ($vamPath + $FileName), ("Custom/Scripts/iHV_Normalized/" + $FileName)
+                            #moving .cs and .clist means that the .clist must be rewritten: task list item               
+                        #>
+                                               
                     # consider idio cases for conventional paths: moves/consolidates content out of subfolders into a normalized folder
                         
                         Else{ 
@@ -337,26 +368,21 @@ Function Update-InstructionFile {
                             } }
                         } # Else                            
 
-                    } # If($IsIdiotPath -eq $false -and $FileName.Length -ge 5)
+                    } # If($FileName.Length -ge 5)
 
-                } # If($ExceptionFound -eq $false)
-
-            } #If($NodeName -ne $null)
-         
-        } # $Instructions | ForEach-Object
-
-            
+            } # If($ExceptionFound -eq $false -Or $IsIdiotPath -eq $true ){
+                     
             # ---------------------------> End Update with normalized paths
 
             # ---------------------------> Update with VR prefs
 
 
-        If($blnVRprefs -eq $true -AND ($File_FullName -imatch "\.json" -or $File_FullName -imatch "\.vap")){
-            $blnWasTheFileChanged = $true
+            If($blnVRprefs -eq $true -AND ($File_FullName -imatch "\.json" -or $File_FullName -imatch "\.vap")){
+                $blnWasTheFileChanged = $true
 
-            #write-host $File_FullName 
-            $Json = ""
-            $Json = $Instructions | ConvertFrom-JSON -ErrorAction SilentlyContinue
+                #write-host $File_FullName 
+                $Json = ""
+                $Json = $Instructions | ConvertFrom-JSON -ErrorAction SilentlyContinue
 
             IF($? -eq $true){ # if content was converted to JSON
 
@@ -430,7 +456,7 @@ Function Update-InstructionFile {
                                 } -ErrorAction SilentlyContinue
                         }
 
-                    }
+                    } # if sex eq male
 
                     # Update Person attributes for VR
 
@@ -451,7 +477,7 @@ Function Update-InstructionFile {
                         $SoftBodyPhysicsEnabler = $Person.storables | Where-Object{$_.id -eq 'SoftBodyPhysicsEnabler'}
                         If($SoftBodyPhysicsEnabler.enabled -eq $null){$SoftBodyPhysicsEnabler | add-member -Name "enabled" -value 'true' -MemberType NoteProperty -Force} else {$SoftBodyPhysicsEnabler.enabled = 'true'}
 
-                    }
+                    } # if sex eq female
                     else # if male then
                     {
 
@@ -472,13 +498,13 @@ Function Update-InstructionFile {
                         $SoftBodyPhysicsEnabler = $Person.storables | Where-Object{$_.id -eq 'SoftBodyPhysicsEnabler'}
                         If($SoftBodyPhysicsEnabler.enabled -eq $null){} else {$SoftBodyPhysicsEnabler.enabled = 'false'}
 
-                    } # Update person attributes by sex
+                    } # If Male 
             
                 } #ForEach Person     
 
                 # CONFIGURE LIGHTS
 
-                If($File_FullName -imatch $AuthorLighting_RegExFilter){ # fix defaults: lighting best practice generally is as below. Some noted exceptions are in the $AuthorLighting_RegExFilter                        
+                If($File_FullName -inotmatch $AuthorLighting_RegExFilter){ # fix defaults: lighting best practice generally is as below. Some noted exceptions are in the $AuthorLighting_RegExFilter                        
 
                     $lights = @()
                     $lights = $JSON.atoms | Where-Object{$_.type -eq 'InvisibleLight'}
@@ -497,7 +523,9 @@ Function Update-InstructionFile {
                                     If($key.shadowResolution -eq $null){$key | add-member -Name "shadowResolution" -value 'VeryHigh' -MemberType NoteProperty}else {$key.shadowResolution = 'VeryHigh'}
                                 }
                             }
-                        }
+                        
+                        } #ForEach(storedObject
+
                     } #ForEach($light
 
                 } # if not a skilled electrician
@@ -508,52 +536,51 @@ Function Update-InstructionFile {
             } # if convert from JSON = true
             Else{ $LogEntry + "---ERROR: convertTo JSON for VRprefs. FILE:" + $File_FullName | Out-File -FilePath $LogPath -Append }
 
-        } # VR Prefs
+            } # VR Prefs
            
             # ---------------------------> End Update with VR Prefs
-
-            # ---------------------------> Update file with new content
-
-
-        If($blnWasTheFileChanged -eq $true){
-            
-            # write-host $ScriptName---UPDATE: $File_FullName
-       
-            #fix corruption that occurs when executing more than once on a file
-            $Instructions = $Instructions -iReplace("ustom/","Custom/") 
-            $Instructions = $Instructions -iReplace("CCustom/","Custom/")
-            $Instructions = $Instructions -Replace("//", "/")
-            $Instructions = $Instructions -Replace("Custom/Sounds/iHV_Normalized/Custom/Sounds/iHV_Normalized/", "Custom/Sounds/iHV_Normalized/")
-            $Instructions = $Instructions -Replace("AdamAnt5.Realtime_LipSync.1:/","")
-
-
-            
-            $LogEntry + "---writing Updates.  FILE:" + $File_FullName + " CL:" + $Instructions.Length | Out-File -FilePath $LogPath -Append
-            
-            If($Instructions -imatch "/Custom/" -or $Instructions -imatch "/Saves/" ){
-                Write-Host ---ERROR: VAR prefix. Search for /Custom or /Saves in: $File_FullName
-                $LogEntry + " ERROR: VAR prefix. Search for /Custom or /Saves in: " + $File_FullName | Out-File -FilePath $LogPath -Append
-            }
-
-            # write-host --Writing $File_FullName :: $Instructions.Length
-            $Error.Clear()
-            [System.IO.File]::WriteAllLines($File_FullName, $Instructions)
-            If($Error.Count -ne 0){
-                Write-Host ---ERROR: $Error[0] FILE: $File_FullName
-                $LogEntry + " ERROR: " + $Error[0] + ", FILE:" + $File_FullName | Out-File -FilePath $LogPath -Append
-            }
         
+        } # $Instructions | Where-Object
+        
+    # ---------------------------> Update file with new content
+
+    If($blnWasTheFileChanged -eq $true){
+            
+        # write-host $ScriptName---UPDATE: $File_FullName
+       
+        #fix corruption that occurs when executing more than once on a file
+        $Instructions = $Instructions -iReplace("ustom/","Custom/") 
+        $Instructions = $Instructions -iReplace("CCustom/","Custom/")
+        $Instructions = $Instructions -Replace("//", "/")
+        $Instructions = $Instructions -Replace("Custom/Sounds/iHV_Normalized/Custom/Sounds/iHV_Normalized/", "Custom/Sounds/iHV_Normalized/")
+        $Instructions = $Instructions -Replace("AdamAnt5.Realtime_LipSync.1:/","")
+            
+        $LogEntry + "---writing Updates.  FILE:" + $File_FullName + " CL:" + $Instructions.Length | Out-File -FilePath $LogPath -Append
+            
+        If($Instructions -imatch "/Custom/" -or $Instructions -imatch "/Saves/" ){
+            Write-Host ---ERROR: VAR prefix. Search for /Custom or /Saves in: $File_FullName
+            $LogEntry + " ERROR: VAR prefix. Search for /Custom or /Saves in: " + $File_FullName | Out-File -FilePath $LogPath -Append
         }
 
-} # End Update-InstructionFile Function
+        # write-host --Writing $File_FullName :: $Instructions.Length
+        $Error.Clear()
+        [System.IO.File]::WriteAllLines($File_FullName, $Instructions)
+        If($Error.Count -ne 0){
+            Write-Host ---ERROR: $Error[0] FILE: $File_FullName
+            $LogEntry + " ERROR: " + $Error[0] + ", FILE:" + $File_FullName | Out-File -FilePath $LogPath -Append
+        }
+        
+    } #  If($blnWasTheFileChanged -eq $true){
 
+
+} # End Update-InstructionFile Function
 
     ###################### SCRIPT TUNING ###################### 
 
 # > > > SCRIPT TUNING
 
 $blnNormalizeTextures  = $false # Normalize texture files into the parent texture folder. Will impact game quality but increase stability.
-$blnProcessRootFolders = $true  # Processing root folders on mature installs is redundant, and a considerable waste of processing time
+$blnProcessRootFolders = $false # Processing root VAM/iHH folders is redundant, and a waste of processing time; set to yes only if fixing an existing install
 $blnWatchForAllIdiots  = $true  # Expand the Idiots array to known offenders. Keep on when dealing with new content. Turn off when processing mature installs.
 $Normalize             = $true  # Normalize files into a single instance, where possible
 
@@ -570,7 +597,7 @@ $AuthorLighting_RegExFilter = "(Alpaca|Androinz|C\&G|ClubJulze|KittyMocap|Nial|N
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") } # don't use .\ for the root path for this script: it's kills path parsing above
 
 $ScriptName            = "iHV_Normalize4VR"
-$ScriptVersion         = "1.0.5"
+$ScriptVersion         = "1.0.6"
 $LogPath               = ($PSScriptRoot + "\_1a " + $ScriptName + ".log")
 $LogEntry              = Get-Date -Format "yyyy/MM/dd HH:mm" 
 
@@ -643,7 +670,7 @@ If($blnWatchForAllIdiots -eq $true){
         @{IdiotPath="Custom/Materials/";TargetPath="Custom/Atom/Idiots/"}
         @{IdiotPath="Custom/texture/";TargetPath="Custom/Atom/Idiots/"}
         @{IdiotPath="Custom/textures/";TargetPath="Custom/Atom/Idiots/"}
-        @{IdiotPath="Custom/TX/";TargetPath="Custom/Atom/Idiots/"} #UVM
+        @{IdiotPath="Custom/TX/";TargetPath="Custom/Atom/Idiots/"} #CZ
         @{IdiotPath="Saves/TextureG/";TargetPath="Custom/Atom/Idiots/"} #UJVAM
         @{IdiotPath="Saves/Textures-Mix/";TargetPath="Custom/Atom/Idiots/"} #
     )
@@ -704,7 +731,6 @@ $Exceptions = @(
     "Electric Dreams" # optional: favorite clothing author
     "Energy85" # optional: clothing author who does not use unique file names
     "favorites" # Required: conventional VAM folder
-    "iHV_Normalized" # Required: processed IHV files
     "a iHV_" # iHV scripts & log files
     "Jackaroo" # optional: clothing author who does not use unique file names
     "myFav" # Required: folders/files prefix that identifies content exempt from normalizing by this script, so to establish a personal folder organization scheme
@@ -716,23 +742,13 @@ $Exceptions = @(
     "VamTextures" # optional: Male gen textures from Jackaroo
     "VaMChan" # optional: Hair, scene author who does not use unique file names
     "VRDollz" # optional: clothing author who does not use unique file names
-
-    # "./" # Relative path for scenes; if not excepted, this gets turned into a sound path regardless of the actual content
 )
-If($blnNormalizeTextures = $false){ $Exceptions += "Custom/Atom/Person/Textures"}
+If($blnNormalizeTextures -eq $false){ $Exceptions += "Custom/Atom/Person/Textures" }
+If($blnProcessRootFolders -eq $false){ $Exceptions += "iHV_Normalized" }
 
 
 
-#
-# CALL - NORMALIZE FILE SYSTEM
-# Move files out of idio and idiot locations into base the VAM file locations (to dedupe content)
-
-$InstructionsDirs | Foreach-Object { If($Normalize -eq $true){ Normalize-ResourceDir ( $_ -Replace("/","\") ) } }
-$ResourceDirs | Foreach-Object { If($Normalize -eq $true){ Normalize-ResourceDir ( $_ -Replace("/","\") ) } }
-$PresetDirs | Foreach-Object { If($Normalize -eq $true){ Normalize-ResourceDir ( $_ -Replace("/","\") ) } }
-
-#
-# MOVE IDIOT RESOURCES INTO Custom/Atom/Idiots/
+# DISCOVER IDIOT RESOURCES
 
 
 # Get any idiot folders found in the VAM >>> root <<< directory & add to the Idiot array
@@ -791,6 +807,14 @@ Get-ChildItem -Path ($vamRoot + "Custom") -Directory -Force | Foreach-Object {
 
 } # Get idiot folders
 
+
+# ------------------------------------------->
+
+<#
+# CALL - NORMALIZE FILE SYSTEM
+# Move files out of idio and idiot locations into base the VAM file locations (to dedupe content)
+#>
+
 $IdiotPaths | ForEach-Object{ 
 
     If($_ -eq $null){Return}
@@ -801,12 +825,23 @@ $IdiotPaths | ForEach-Object{
 
 } # $IdiotPaths | ForEach-Object{ 
 
+
+$InstructionsDirs | Foreach-Object { If($Normalize -eq $true){ Normalize-ResourceDir ( $_ -Replace("/","\") ) } }
+$ResourceDirs | Foreach-Object { If($Normalize -eq $true){ Normalize-ResourceDir ( $_ -Replace("/","\") ) } }
+$PresetDirs | Foreach-Object { If($Normalize -eq $true){ Normalize-ResourceDir ( $_ -Replace("/","\") ) } }
+
+
+# ------------------------------------------->
+
 <#
  
- UPDATE CONTENT FILES
+ CALL - UPDATE CONTENT FILES
  Change resource pointers to reflect the new, normalized locations
  .vaj files point to texture files
  .vam files don't seem to hold any paths
+
+ Note: idiot folders are not called. They are resources, not instructions.
+
 #>
 
 $PresetDirs | Foreach-Object { 
@@ -833,6 +868,9 @@ $InstructionsDirs | Foreach-Object {
         
 } # $InstructionsDirs | Foreach-Object { 
 
+
+
+# ------------------------------------------->
 
 
 # "Poor man's" intrusion detection
