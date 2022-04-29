@@ -55,35 +55,41 @@ Function Normalize-ResourceDir {
         # Get files that are not already normalized
         Get-ChildItem -Path ($vamRoot + $ResourceDir) -File -Recurse -Force -ErrorAction SilentlyContinue | Where-Object { $_ -inotmatch "iHV_Normalized" } | ForEach-Object {
 
+            # Write-host Nmlz Child: $_.FullName
+
             $ResourceFullName = $_.FullName
 
             # Skip folders from the exceptions array
             $ExceptionFound = $false
             $Exceptions | ForEach-Object{ If( $ResourceFullName -ilike ("*" + $_.Replace("/","\") + "*") ){ $ExceptionFound = $true } }
 
-            If($ExceptionFound -eq $false){
+            # Don't skip folders from the Idiot array
+            $IsIdiotPath = $false
+            If($blnWatchForAllIdiots -eq $true){ $IdiotPaths | ForEach-Object { If( $ResourceFullName -imatch ($_.IdiotPath.Replace("/","\\")) ) { $IsIdiotPath = $true } } }
+
+            If($ExceptionFound -eq $false -Or $IsIdiotPath -eq $true ){
 
                 $ResourceFile = $_.Name
                 #write-Host "----RF: " $ResourceFile
 
                 # File type cases
 
-                If( $ResourceFile -match "\.assetbundle" -Or $ResourceFile -ilike "*.scene" ){
+                If( $ResourceFile -match "\.assetbundle$" -Or $ResourceFile -ilike "*.scene$" ){
                     # write-host ".....Move asset file to Custom\AssetsiHV_Normalized\"
                     $LogEntry + ".....Move asset file: " + $ResourceFile | Out-File -FilePath $LogPath -Append
                     $_ | Move-Item -Destination ($vamRoot + "Custom\Assets\iHV_Normalized\") -Force -ErrorAction SilentlyContinue
                 }
-                ElseIf( $ResourceFile -match "(\.mp3|\.ogg|\.wav|\.bvh)") {
+                ElseIf( $ResourceFile -match "(\.mp3$|\.ogg$|\.wav$|\.bvh$)") {
                     #write-host ".....Move media file to Custom\Sounds\iHV_Normalized\"
                     $LogEntry + ".....Move media file: " + $ResourceFile | Out-File -FilePath $LogPath -Append
                     $_ | Move-Item -Destination ($vamRoot + "Custom\Sounds\iHV_Normalized\") -Force -ErrorAction SilentlyContinue
                 }
-                ElseIf( $ResourceFile -match "\.webm" ){
+                ElseIf( $ResourceFile -match "\.webm$" ){
                     # write-host ".....Move WEBM file to Custom\Assets\Audio\WEBM\iHV_Normalized\"
                     $LogEntry + ".....Move WEBM file: "  + $ResourceFile | Out-File -FilePath $LogPath -Append
                     $_ | Move-Item -Destination ($vamRoot + "Custom\Sounds\WEBM\iHV_Normalized\") -Force -ErrorAction SilentlyContinue
                 }
-                ElseIf( $ResourceFile -match "(\.cs|\.clist)" ){ # Clists have hard-coded paths that would need to be re-written; task item
+                ElseIf( $ResourceFile -match "(\.cs$|\.clist$)" ){ # Clists have hard-coded paths that would need to be re-written; task item
                     # Custom\Scripts is an exception, so that folder will not be normalized
                     # write-host ".....Move Script file to Custom\Scripts\"
                     #$LogEntry + ".....Move Script file: "  + $ResourceFile | Out-File -FilePath $LogPath -Append
@@ -93,11 +99,11 @@ Function Normalize-ResourceDir {
                 # Idiot cases
 
                 # for idiot cases (folders), there is a provided $TargetPath value is passed to the Update function
-                ElseIf($TargetPath -match "Custom"){
+                ElseIf($TargetPath -match "Custom\\"){
                     $LogEntry + ".....Move Idiot: " + $_.FullName + " to " + ($vamRoot + $TargetPath.Replace("/","\")) | Out-File -FilePath $LogPath -Append
                     $_ | Move-Item -Destination ($vamRoot + $TargetPath.Replace("/","\")) -ErrorAction SilentlyContinue
                 }
-                ElseIf( $blnNormalizeTextures -eq $true -and $ResourceFullName -ilike "*\texture*\*" ){
+                ElseIf( $NormalizeTextures -eq $true -and $ResourceFullName -ilike "*\texture*\*" ){
                     # write-host ".....Move texture file to Custom\Atom\Person\Textures\iHV_Normalized\"
                     $LogEntry + ".....Move texture file: " + $ResourceFile | Out-File -FilePath $LogPath -Append
                     $_ | Move-Item -Destination ($vamRoot + "Custom\Atom\Person\Textures\iHV_Normalized\") -Force -ErrorAction SilentlyContinue
@@ -105,12 +111,12 @@ Function Normalize-ResourceDir {
 
                 # Idio cases
 
-                ElseIf( $ResourceFullName -match "Saves\\" ){
+                ElseIf( $ResourceFullName -imatch "Saves\\" ){
 
                     # trap all Saves\ content here to avoid them falling tinto the default condition below
                     # only image scene\files are processed here; .cs files along with other resources are processed above
 
-                    If( $ResourceFullName -match "(\.jpg|\.png)"){
+                    If( $ResourceFullName -match "(\.jpg$|\.png$)"){
 
                         #pull the file extension off the path
                         $rootPathName = $ResourceFullName.Substring(0, $ResourceFullName.lastIndexOf(".") ) 
@@ -236,12 +242,12 @@ Function Update-InstructionFile {
 
             $ExceptionFound = $false
             $Exceptions | ForEach-Object{ If( $Line -imatch $_ ){ $ExceptionFound = $true } }
-            If($Line -imatch "Custom/Atom/" -And $Line -inotmatch "Custom/Atom/Person/"){$ExceptionFound = $true} # For Custom/Atom: Only process Custom/Atom/Person/
+            #If($Line -ilike "*Custom/Atom*" -And ($Line -inotlike "*Custom/Atom/Person*"  -or $Line -inotlike "*Custom/Atom/Idiots*")){$ExceptionFound = $true} # For Custom/Atom: Only process Custom/Atom/Person/
 
             $IsIdiotPath = $false
             If($blnWatchForAllIdiots -eq $true){ $IdiotPaths | ForEach-Object { If( $Line -imatch ($_.IdiotPath) ) { $IsIdiotPath = $true } } }
 
-            # Write-host --- ExceptionFound $ExceptionFound IsIdiotPath $IsIdiotPath
+            # Write-host --- $Line  ExceptionFound $ExceptionFound IsIdiotPath $IsIdiotPath
 
             If($ExceptionFound -eq $false -Or $IsIdiotPath -eq $true ){
 
@@ -251,7 +257,9 @@ Function Update-InstructionFile {
                 $FileName  = ""
                 $vamPath  = ""
 
+            #
             # Parse the JSON value pair into name + value
+            #
 
                 $NodeName  = $Line.Substring(0, $Line.indexOf(":") + 3 ).Trim()
                 
@@ -259,56 +267,37 @@ Function Update-InstructionFile {
                 
                 $NodeValue = $Line.Replace($NodeName,"").Trim().Trim(",").Trim("""") 
                 $LastSlash = $NodeValue.lastindexof("/")
+            
+            #
+            # Parse out the file and the path
+            #
 
-            # 2 kinds of paths: nominal & relative. If Relative, then "nominalize" it with a full path to support appearance files
+                # 2 kinds of paths: nominal & relative. If Relative, then convert to nominal to support appearance files
 
                 # Nominal path
-                If($LastSlash -ge 3 -and $NodeValue -notmatch "\./"){ # this is a nominal path
+                If($LastSlash -ge 3 -And $NodeValue -inotmatch "^\./"){ # this is a nominal path
                     
-                        $vamPath   = ($NodeValue.Substring( 0, $LastSlash ).Trim() + "/") 
-                        $FileName  = $NodeValue.Replace($vamPath,"")
+                        $vamPath   = ($NodeValue.Substring( 0, $LastSlash ).Trim() + "/")                # e.g. Custom/Clothing/Female/DevName/
+                        $FileName  = $NodeValue.Replace($vamPath,"")                                     # e.g. file.png
 
                     }
 
-                # Relative path
-                Else{
-                        $blnWasTheFileChanged = $true
-
-                        # nominalize the relative path so it can be processed below by the normalize functions
-
-                        $FileName  = $NodeValue.Trim()
-                        
-                        # 3 idio cases to consider: 1. if relative path, 2. if saves and image file, 3. if saves and .cs, 
-
-                        If($FileName -match "\./"){ 
-                            $replaceMe = $FileName.Substring(0,$FileName.LastIndexOf("/") + 1)
-                            $FileName = $FileName.Replace($replaceMe,"")
-                        }
-
-                        $vamPath  = $File_FullName.Substring(0,$File_FullName.LastIndexOf("\")) # set path to the directory in which the instruction file is located
-                        $vamPath  = $vamPath.Replace($vamRoot, "").Replace("\","/")
-
-                        # port the normalized path into the instructions feed
-
-                        $NewLine = $Line.Replace($NodeValue, $vamPath + "/" + $FileName)
-                        $Instructions = $Instructions.Replace( $Line, $NewLine )
-
-                    } # Else rel path
-
-                # Write-Host vamPath:: $vamPath FileName:: $FileName
-
-                # Normalize the path
+            #     Write-Host vamPath:: $vamPath FileName:: $FileName
+            
+            #
+            # Normalize the path
+            #
 
                 If($FileName.Length -ge 5){
                         $blnWasTheFileChanged = $true
-  
+
                     # consider type cases before swapping out idio paths for conventional paths
 
-                        If( $FileName -imatch "(sample\.wav|PostMagic)"){ $Instructions = $Instructions -ireplace [regex]::Escape(($vamPath + $FileName)), ("iHV_Normalize4VR_ValueRemoved") }
+                        If( $FileName -imatch "(sample\.wav$|PostMagic)"){ $Instructions = $Instructions -ireplace [regex]::Escape(($vamPath + $FileName)), ("iHV_ValueRemoved") }
                          
-                        ElseIf( $FileName -imatch "(\.assetbundle|\.scene)" -and $vamPath -inotmatch "Custom/Assets/iHV_Normalized/" ){ $Instructions = $Instructions -ireplace [regex]::Escape(($vamPath + $FileName)), ("Custom/Assets/iHV_Normalized/" + $FileName) }
-                        ElseIf( $FileName -imatch "(\.mp3|\.ogg|\.wav|\.bvh)" -and $vamPath -inotmatch "Custom/Sounds/iHV_Normalized/" ){$Instructions = $Instructions -ireplace [regex]::Escape(($vamPath + $FileName)), ("Custom/Sounds/iHV_Normalized/" + $FileName)}
-                        ElseIf( $FileName -imatch "\.webm" -and $vamPath -inotmatch "Custom/Sounds/WEBM/iHV_Normalized/" ){$Instructions = $Instructions -ireplace [regex]::Escape(($vamPath + $FileName)), ("Custom/Sounds/WEBM/iHV_Normalized/" + $FileName)} 
+                        ElseIf( $FileName -imatch "(\.assetbundle$|\.scene$)" -and $vamPath -inotmatch "Custom/Assets/iHV_Normalized/" ){ $Instructions = $Instructions -ireplace [regex]::Escape(($vamPath + $FileName)), ("Custom/Assets/iHV_Normalized/" + $FileName) }
+                        ElseIf( $FileName -imatch "(\.mp3$|\.ogg$|\.wav$|\.bvh$)" -and $vamPath -inotmatch "Custom/Sounds/iHV_Normalized/" ){$Instructions = $Instructions -ireplace [regex]::Escape(($vamPath + $FileName)), ("Custom/Sounds/iHV_Normalized/" + $FileName)}
+                        ElseIf( $FileName -imatch "\.webm$" -and $vamPath -inotmatch "Custom/Sounds/WEBM/iHV_Normalized/" ){$Instructions = $Instructions -ireplace [regex]::Escape(($vamPath + $FileName)), ("Custom/Sounds/WEBM/iHV_Normalized/" + $FileName)} 
 
                     # consider idiot cases before swapping out idio paths for conventional paths
                         
@@ -318,13 +307,14 @@ Function Update-InstructionFile {
                                     $Instructions = $Instructions -ireplace [regex]::Escape($Line), $NewLine
 
                             } # ForEach
+
                         } # ElseIf
 
-                        ElseIf( $vamPath -imatch "/texture" -and $blnNormalizeTextures -eq $true ){ $Instructions = $Instructions -ireplace [regex]::Escape(($vamPath + $FileName)), ("Custom/Atom/Person/Textures/iHV_Normalized/" + $FileName) }
+                        ElseIf( $vamPath -imatch "/texture" -and $NormalizeTextures -eq $true ){ $Instructions = $Instructions -ireplace [regex]::Escape(($vamPath + $FileName)), ("Custom/Atom/Person/Textures/iHV_Normalized/" + $FileName) }
                         
                     # consider special cases before swapping out idio paths for conventional paths
                                                 
-                        If( $vamPath -imatch "Saves/" -and $FileName -match "(\.jpg|\.png)" ){
+                        If( $vamPath -imatch "Saves/" -and $FileName -match "(\.jpg$|\.png$)" ){
                             
                             # Write-host Saves path found
 
@@ -364,6 +354,7 @@ Function Update-InstructionFile {
                                 $Instructions = $Instructions -ireplace [regex]::Escape($Line), ($NewLine)
 
                             } }
+
                         } # Else                            
 
                     } # If($FileName.Length -ge 5)
@@ -378,7 +369,7 @@ Function Update-InstructionFile {
         # ---------------------------> Update with VR prefs
 
 
-        If($blnVRprefs -eq $true -AND ($File_FullName -imatch "\.json" -or $File_FullName -imatch "\.vap")){
+        If($blnVRprefs -eq $true -AND ($File_FullName -imatch "\.json$" -or $File_FullName -imatch "\.vap$")){
             $blnWasTheFileChanged = $true
 
             #write-host $File_FullName 
@@ -388,7 +379,7 @@ Function Update-InstructionFile {
             IF($? -eq $true){ # if content was converted to JSON
 
             # CONFIGURE SCALE
-                if($File_FullName -imatch "\.json"){
+                if($File_FullName -imatch "\.json$"){
                      If($Json.worldScale -ne $null){$Json.worldScale = $WorldScale}
                      Else{ $Json | add-member -Name "worldScale" -value $WorldScale -MemberType NoteProperty -ErrorAction SilentlyContinue }
                 }
@@ -550,9 +541,9 @@ Function Update-InstructionFile {
         # write-host $ScriptName---UPDATE: $File_FullName
        
         #fix corruption that occurs when executing more than once on a file
-        $Instructions = $Instructions -Replace("//", "/")
-        $Instructions = $Instructions -Replace("Custom/Sounds/iHV_Normalized/Custom/Sounds/iHV_Normalized/", "Custom/Sounds/iHV_Normalized/")
-        $Instructions = $Instructions -Replace("AdamAnt5.Realtime_LipSync.1:/","")
+        #$Instructions = $Instructions -Replace("//", "/")
+        #$Instructions = $Instructions -Replace("Custom/Sounds/iHV_Normalized/Custom/Sounds/iHV_Normalized/", "Custom/Sounds/iHV_Normalized/")
+        #$Instructions = $Instructions -Replace("AdamAnt5.Realtime_LipSync.1:/","")
             
         $LogEntry + "---writing Updates.  FILE:" + $File_FullName + " CL:" + $Instructions.Length | Out-File -FilePath $LogPath -Append
             
@@ -578,13 +569,17 @@ Function Update-InstructionFile {
 
 # > > > SCRIPT TUNING
 
-$blnNormalizeTextures  = $false # Normalize texture files into the parent texture folder. Will impact game quality but increase stability.
 $blnProcessRootFolders = $true  # Set to false if you are only processing Saves\scene content and nothing in the Custom folder
 $blnWatchForAllIdiots  = $true  # Expand the Idiots array to known offenders. Keep on when dealing with new content. Turn off when processing mature installs.
-$Normalize             = $true  # Normalize files into a single instance, where possible
+
+$Normalize             = $true  # Normalize files into a single instance, where possible. Set to false if you've already run iHV and are updating only
+$NormalizeClothing     = $false 
+$NormalizeHair         = $true
+$NormalizeSkin         = $true  
+$NormalizeTextures     = $false # Normalize texture files into the parent texture folder. Will impact game quality but increase stability.
 
 $blnVRprefs            = $true
-$WorldScale            = "1.20" # make the game content smaller by 20%
+$WorldScale            = "1.20" # makes the in-game objects (e.g., people) smaller by 20%
 $VoicePitch            = "1.25" # raise the pitch of female character voices by 25%
 
 $FileType_RegExFilter       = "(\.dll|\.vab|\.vapb|\.vaj|\.vam|\.vap|\.vmi|\.json|\.jpg|\.png|\.mp3|\.wav|\.ogg|\.m4a|\.webm|\.amc|\.assetbundle|\.scene|\.clist|\.cs|\.bvh)"
@@ -596,7 +591,7 @@ $AuthorLighting_RegExFilter = "(Alpaca|Androinz|C\&G|ClubJulze|KittyMocap|Nial|N
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") } # don't use .\ for the root path for this script: it's kills path parsing above
 
 $ScriptName            = "iHV_Normalize4VR"
-$ScriptVersion         = "1.0.7"
+$ScriptVersion         = "1.0.9"
 $LogPath               = ($PSScriptRoot + "\_1a " + $ScriptName + ".log")
 $LogEntry              = Get-Date -Format "yyyy/MM/dd HH:mm" 
 
@@ -613,8 +608,9 @@ $InstructionsDirs = @(
     "Custom/SubScene/"
 )
 $InstructionsDirs | Foreach-Object {MD ($vamRoot + $_.Replace("/","\") + "iHV_Normalized\") -ErrorAction SilentlyContinue}
-$InstructionsDirs += "Saves/scene/"
 $InstructionsDirs += "Saves/Person/"
+$InstructionsDirs += "Saves/scene/"
+
 
 # PRESET FOLDERS - directories with preset files
 $PresetDirs = @(
@@ -640,45 +636,46 @@ $ResourceDirs = @(
     "Custom/Sounds/"
     "Custom/Sounds/WEBM/"
 )
-If($blnNormalizeTextures -eq $true){ $ResourceDirs += "Custom/Atom/Person/Textures/" } # DANGER! test test test and accept results before losing custom textures
+If($NormalizeTextures -eq $true){ $ResourceDirs += "Custom/Atom/Person/Textures/" } # DANGER! test test test and accept results before losing custom textures
 $ResourceDirs | Foreach-Object {MD ($vamRoot + $_.Replace("/","\") + "iHV_Normalized\") -ErrorAction SilentlyContinue}
 MD ($vamRoot + "Custom\Atom\Person\Textures\iHV_Normalized\") -ErrorAction SilentlyContinue
 
 
-#  IDIOT FOLDERS - case sensitive; this arry will be updated further down to include any unlisted folders found ino the root of VAM
-#  add as you see them appear to control the destination 
-#  tied to blnWatchForAllIdiots to speed up processing
+<#  IDIOT FOLDERS - entries are for:
+  - when you need to Provide an explicit destination in the $TargetPath variable, e.g. Sound files
+    Otherwise, all Idiot folder content will be moved to the Custom/Atom/Idiots folder 
 
+  - when you find nested content within a native VAM folder and within a subfolder, e.g. /Custom/Clothing/Texture-Pack/ 
+  
+  this array can be turrned off via the $blnWatchForAllIdiots switch to speed up processing
+
+#>
 
 If($blnWatchForAllIdiots -eq $true){
     $IdiotPaths = @(
         @{IdiotPath="Addonpackages/_texture/";TargetPath="Custom/Atom/Idiots/"} # BoyaVAM
         @{IdiotPath="Addonpackages/Decals & Textures/";TargetPath="Custom/Atom/Idiots/"}
         @{IdiotPath="Addonpackages/WadVRX Mega Scene Pack Dec'19/";TargetPath="Custom/Atom/Idiots/"}
-        @{IdiotPath="Custom/ClubV/";TargetPath="Custom/Atom/Idiots/"} # ClubV
+        @{IdiotPath="Addonpackages/UJVAM/";TargetPath="Custom/Atom/Idiots/"}
+        @{IdiotPath="Audio for Scenes/";TargetPath="Custom/Sounds/iHV_Normalized/"}
+        @{IdiotPath="Custom/Audio/";TargetPath="Custom/Sounds/iHV_Normalized/"}
+        @{IdiotPath="Custom/comm/";TargetPath="Custom/Sounds/iHV_Normalized/"}
+        @{IdiotPath="Custom/clinic/";TargetPath="Custom/Sounds/iHV_Normalized/"}
+        @{IdiotPath="Custom/drone/";TargetPath="Custom/Sounds/iHV_Normalized/"}
+        @{IdiotPath="Custom/ride/";TargetPath="Custom/Sounds/iHV_Normalized/"}
+        @{IdiotPath="Custom/Sound/";TargetPath="Custom/Sounds/iHV_Normalized/"}
         @{IdiotPath="Custom/Clothing/alpha/";TargetPath="Custom/Atom/Idiots/"} # 
         @{IdiotPath="Custom/Clothing/Neutral/";TargetPath="Custom/Atom/Idiots/"} # 
         @{IdiotPath="custom/Clothing/Other Textures/";TargetPath="Custom/Atom/Idiots/"} # 
         @{IdiotPath="custom/Clothing/repleace/";TargetPath="Custom/Atom/Idiots/"} # 
         @{IdiotPath="custom/Clothing/Road/";TargetPath="Custom/Atom/Idiots/"} # 
         @{IdiotPath="Custom/Clothing/Texture-Pack/";TargetPath="Custom/Atom/Idiots/"} # ivansx
-        @{IdiotPath="Custom/comm/";TargetPath="Custom/Sounds/iHV_Normalized/"}
-        @{IdiotPath="Custom/Decals/";TargetPath="Custom/Atom/Idiots/"} # 
-        @{IdiotPath="Custom/Fabrics/";TargetPath="Custom/Atom/Idiots/"}
-        @{IdiotPath="Custom/Image/";TargetPath="Custom/Atom/Idiots/"}
-        @{IdiotPath="Custom/Images/";TargetPath="Custom/Atom/Idiots/"}
-        @{IdiotPath="Custom/Materials/";TargetPath="Custom/Atom/Idiots/"}
-        @{IdiotPath="Custom/texture/";TargetPath="Custom/Atom/Idiots/"}
-        @{IdiotPath="Custom/textures/";TargetPath="Custom/Atom/Idiots/"}
-        @{IdiotPath="Custom/TX/";TargetPath="Custom/Atom/Idiots/"} #CZ
-        @{IdiotPath="Saves/TextureG/";TargetPath="Custom/Atom/Idiots/"} #UJVAM
-        @{IdiotPath="Saves/Textures-Mix/";TargetPath="Custom/Atom/Idiots/"} #
     )
 }
 MD ($vamRoot + "Custom\Atom\Idiots\") -ErrorAction SilentlyContinue
 
   
-# NATIVE VAM ROOT FOLDERS - part of the base build
+# NATIVE VAM ROOT FOLDERS - part of the base build - folders found within the parent that are not in this array will be treated as Idiot folders
 $NativeRootFolders = @(
     "AddonPackages"
     "AddonPackagesUserPrefs"  # appears as needed
@@ -695,7 +692,7 @@ $NativeRootFolders = @(
     "Saves"
     "VaM_Data"
 )
-# NATIVE SAVE FOLDERS - part of the base build
+# NATIVE SAVE FOLDERS - part of the base build - folders found within the parent that are not in this array will be treated as Idiot folders
 $NativeSaveFsolders = @(
     "Saves/Animations" # native
     "Saves/AudioMate" # Dub plugin
@@ -707,11 +704,12 @@ $NativeSaveFsolders = @(
     "Saves/Video" # VideoController 2 by @VamSander. 
     "Saves/scene" # native
 )
-# NATIVE CUSTOM FOLDERS - part of the base build
+# NATIVE CUSTOM FOLDERS - part of the base build - folders found within the parent that are not in this array will be treated as Idiot folders
 $NativeCustomFolders = @(
     "Custom/Assets"
     "Custom/Atom"  
     "Custom/Clothing"
+    "E-Motion" # not native but popular
     "Custom/Hair"
     "Custom/PluginData"  
     "Custom/PluginPresets"
@@ -721,33 +719,64 @@ $NativeCustomFolders = @(
 )
 # PERSONAL EXCEPTIONS - not part of the base build but ignore these anyway (format: keywords, no file extenstions)
 $Exceptions = @(
-    "assetName" # Required: assetName is a JSON node that we don't want to update by mistake when updating asset paths
-    "BobB_" # optional: my author name - change to yours
-    "Builtin" # Required: native folder
-    "2021_clothes_pack_by_Daz" # optional: clothing author who does not use unique file names
-    "Custom/Assets/Audio/RT_LipSync" # required for lip sync plugin RT_LipSync
-    "Custom/Scripts" # Required: scripts have embedded paths that would be disrupted by iHV
-    "displayName" # Required: these often have pseudo paths should must be ignored
-    "E-Motion" # Required for this popular plugin
-    "Electric Dreams" # optional: favorite clothing author
-    "Energy85" # optional: clothing author who does not use unique file names
-    "favorites" # Required: conventional VAM folder
-    "a iHV_" # iHV scripts & log files
-    "Jackaroo" # optional: clothing author who does not use unique file names
-    "myFav" # Required: folders/files prefix that identifies content exempt from normalizing by this script, so to establish a personal folder organization scheme
-    "NoStage" # optional: Haire author who does not use unique file names
-    "Putz" # optional: clothing author who does not use unique file names
-    "RT_LipSync" # Required by this plugin; creates protected space within Custom/audio/rt_lipsync for a curated audio library specific for this script
-    "receiverAtom" # Required: json node that we don't want to update by mistake when adjusting paths
-    "stringChooserValue" # Required: unity asset path
-    "VamTextures" # optional: Male gen textures from Jackaroo
-    "VaMChan" # optional: Hair, scene author who does not use unique file names
-    "VRDollz" # optional: clothing author who does not use unique file names
+    "assetName"                       # Required: assetName is a JSON node that we don't want to update by mistake when updating asset paths
+    "Builtin"                         # Required: native folder
+    "Custom/Scripts"                  # Required: native; some scripts have embedded paths that would be disrupted by iHV
+    "Custom/SubScene"
+    "displayName"                     # Required: these often have pseudo paths should must be ignored
+    "favorites"                       # Required: native VAM folder
+    "a iHV_"                          # Required: iHV scripts & log files
+    "receiverAtom"                    # Required: json node that we don't want to update by mistake when adjusting paths
+    "stringChooserValue"              # Required: unity asset path    
+    "BobB_"                           # Required: my author name - change to yours
+    "MyFav"                           # Required: folders/files prefix that identifies content exempt from normalizing by this script, so to establish a personal folder organization scheme
+  # "Custom/Assets/Audio/RT_LipSync"  # Optional: for lip sync plugin RT_LipSync
+    "RT_LipSync"                      # Optional: by this plugin; creates protected space within Custom/audio/rt_lipsync for a curated audio library specific for this script
+    "TexturePack"                     # optional: ChoiwaruOyaji (author) files that do not use unique file names
+    "VamTextures"                     # optional: Male gen textures from Jackaroo
 )
-If($blnNormalizeTextures -eq $false){ $Exceptions += "Custom/Atom/Person/Textures" }
+
 If($blnProcessRootFolders -eq $false){ $Exceptions += "iHV_Normalized" }
 
+If($NormalizeClothing -eq $false){ 
+    $Exceptions += "Custom/Clothing/Female"
+}
+else{
+    $Exceptions += "2021_clothes_pack_by_Daz"        # optional: major clothing package without unique file names
+    $Exceptions += "AnythingFashionVR"               # optional: major clothing author who does not use unique file names
+    $Exceptions += "CosmicFTW"                       # optional: major clothing author who does not use unique file names
+    $Exceptions += "CuteSvetlana"                    # optional: major clothing author who does not use unique file names
+    $Exceptions += "DillDoe     "                    # optional: clothing author who does not use unique file names
+    $Exceptions += "ExpressionBlushingAndTears"      # optional: plugin from cotyounoyume
+    $Exceptions += "Jackaroo"                        # optional: clothing author who does not use unique file names
+    $Exceptions += "JaxZoa"                          # optional: major clothing author who does not use unique file names
+    $Exceptions += "Molmark"                         # optional: clothing author who does not use unique file names
+    $Exceptions += "Oeshii"                          # optional: clothing author who does not use unique file names
+    $Exceptions += "Putz"                            # optional: clothing author who does not use unique file names
+    $Exceptions += "Qing"                            # optional: clothing author who does not use unique file names
+    $Exceptions += "SupaRioAmateur"                  # optional: major clothing author who does not use unique file names
+    $Exceptions += "VL_13"                           # optional: clothing author who uses idio structures
+    $Exceptions += "VRDollz"                         # optional: clothing author who uses idio structures
+}
+If($NormalizeHair -eq $false){ 
+    $Exceptions += "Custom/Hair/Female"
+}
+else{
+    $Exceptions += "NoStage"                         # optional: major Hair author who does not use unique file names
+    $Exceptions += "Roac"                            # optional: major Hair author who does not use unique file names
+    $Exceptions += "VaMChan"                         # optional: major Hair, scene author who does not use unique file names
+}
 
+If($NormalizeSkin -eq $false){ $Exceptions += "Custom/Atom/Person/Skin" }
+
+If($NormalizeTextures -eq $false){ $Exceptions += "Custom/Atom/Person/Textures" }
+
+write-host ........................
+write-host EXCEPTIONS:
+write-host
+write-host $Exceptions
+write-host
+write-host .......................
 
 # DISCOVER IDIOT RESOURCES
 
@@ -818,9 +847,8 @@ Get-ChildItem -Path ($vamRoot + "Custom") -Directory -Force | Foreach-Object {
 
 $IdiotPaths | ForEach-Object{ 
 
-    If($_ -eq $null){Return}
-
-    #Write-Host $ScriptName--NMLZ IDIOT: $_.IdiotPath
+    # Write-Host $ScriptName--NMLZ IDIOT: $_.IdiotPath
+    
     If($Normalize -eq $true){ Normalize-ResourceDir ($_.IdiotPath.Replace("/","\")) ($_.TargetPath.Replace("/","\")) }
     [GC]::Collect()
 
@@ -896,5 +924,50 @@ $arrBigFiles | Where-Object { $_ -inotlike "*Unity*" -and $_ -inotlike "*VaM*.ex
 bugs:
 
 # Clists have hard-coded paths that would need to be re-written; task item
+
+.8
+
+- added flags for normalizing base clothing, hair, skin (presets are still normalized)
+- fix relative pathing to better support appearances
+- fix subscenes
+- stop processing subscene  
+
+
+
+WIP
+
+                # Relative path
+                ElseIf($NodeValue -match "^\./"){
+                        $blnWasTheFileChanged = $true
+                        Write-Host relative path... $LastSlash
+                        Write-host NodeValue....... $NodeValue
+
+                        # nominalize the relative path so it can be processed below by the normalize functions
+
+                        $vamPath  = $File_FullName.Substring(0,$File_FullName.LastIndexOf("\") + 1)      # e.g. C:\VAM\Custom\Clothing\Female\DevName\
+                        $vamPath  = $vamPath.Replace($vamRoot, "").Replace("\","/")                      # e.g. Custom/Clothing/Female/DevName/
+
+                        $IdioPath = $NodeValue.Substring(0,$NodeValue.LastIndexOf("/") + 1)              # e.g. ./Idio/
+                        $FileName = $NodeValue.Trim()                                                    # e.g. ./Idio/file.png
+                        $FileName = $FileName.Replace($IdioPath,"")                                      # e.g. "file.png"
+
+                        If($Normalize -eq $true ){ # clear $IdioPath if normalizing
+
+                                If($NormalizeClothing -eq $true -and $vamPath -match "/Clothing"){ $IdioPath = ""}
+                                ElseIf($NormalizeHair -eq $true -and $vamPath -match "/Hair"){ $IdioPath = ""}
+                                ElseIf($NormalizeSkin -eq $true -and $vamPath -match "/Skin"){ $IdioPath = ""}
+
+                        } # if normalizing
+
+                        $vamPath = $vamPath + $IdioPath.Replace("./","")                                 # e.g. Custom/Clothing/Female/DevName/          -> if normalizing
+                                                                                                         # e.g. Custom/Clothing/Female/DevName/Idio/     -> if not normalizing
+                        # port the normalized path into the instructions feed
+
+                        $NewLine = $Line.Replace($NodeValue, $vamPath + $FileName)
+                        #$Instructions = $Instructions.Replace( $Line, $NewLine )
+
+                    } # Else rel path
+
+
 
 #>
