@@ -1,7 +1,9 @@
 <#
 I Hate VARS - Normalize Content for VR
   Remove idiosynchracies that create duplicates, slow VAM down, make it harder to find things, and reduce VAM's overall stability
-  And set in-game preferences (e.g., Worldscale, default plugins, autoexpressions, etc.) 
+  And set in-game preferences for VR (e.g., Worldscale, default plugins, autoexpressions, etc.) 
+  
+  See Line 570 for script tuning options
 
 WARNING:
  - Directories or files that you do not wish to change must be added to the >>> $Exceptions <<< array 
@@ -576,7 +578,7 @@ $Normalize             = $true  # Normalize files into a single instance, where 
 $NormalizeClothing     = $false 
 $NormalizeHair         = $true
 $NormalizeSkin         = $true  
-$NormalizeTextures     = $false # Normalize texture files into the parent texture folder. Will impact game quality but increase stability.
+$NormalizeTextures     = $false # Normalize texture files into the parent texture folder. Reduces storage needs dramatically but Will impact game quality
 
 $blnVRprefs            = $true
 $WorldScale            = "1.20" # makes the in-game objects (e.g., people) smaller by 20%
@@ -591,7 +593,7 @@ $AuthorLighting_RegExFilter = "(Alpaca|Androinz|C\&G|ClubJulze|KittyMocap|Nial|N
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") } # don't use .\ for the root path for this script: it's kills path parsing above
 
 $ScriptName            = "iHV_Normalize4VR"
-$ScriptVersion         = "1.0.9"
+$ScriptVersion         = "1.1.2"
 $LogPath               = ($PSScriptRoot + "\_1a " + $ScriptName + ".log")
 $LogEntry              = Get-Date -Format "yyyy/MM/dd HH:mm" 
 
@@ -638,7 +640,6 @@ $ResourceDirs = @(
 )
 If($NormalizeTextures -eq $true){ $ResourceDirs += "Custom/Atom/Person/Textures/" } # DANGER! test test test and accept results before losing custom textures
 $ResourceDirs | Foreach-Object {MD ($vamRoot + $_.Replace("/","\") + "iHV_Normalized\") -ErrorAction SilentlyContinue}
-MD ($vamRoot + "Custom\Atom\Person\Textures\iHV_Normalized\") -ErrorAction SilentlyContinue
 
 
 <#  IDIOT FOLDERS - entries are for:
@@ -748,9 +749,11 @@ else{
     $Exceptions += "CuteSvetlana"                    # optional: major clothing author who does not use unique file names
     $Exceptions += "DillDoe     "                    # optional: clothing author who does not use unique file names
     $Exceptions += "ExpressionBlushingAndTears"      # optional: plugin from cotyounoyume
+    $Exceptions += "huaQ"                            # optional:  clothing author who does not use unique file names
     $Exceptions += "Jackaroo"                        # optional: clothing author who does not use unique file names
     $Exceptions += "JaxZoa"                          # optional: major clothing author who does not use unique file names
     $Exceptions += "Molmark"                         # optional: clothing author who does not use unique file names
+    $Exceptions += "Mr_CadillacV8"                   # optional: clothing author who does not use unique file names
     $Exceptions += "Oeshii"                          # optional: clothing author who does not use unique file names
     $Exceptions += "Putz"                            # optional: clothing author who does not use unique file names
     $Exceptions += "Qing"                            # optional: clothing author who does not use unique file names
@@ -769,7 +772,7 @@ else{
 
 If($NormalizeSkin -eq $false){ $Exceptions += "Custom/Atom/Person/Skin" }
 
-If($NormalizeTextures -eq $false){ $Exceptions += "Custom/Atom/Person/Textures" }
+If($NormalizeTextures -eq $false){ $Exceptions += "Textures" }
 
 write-host ........................
 write-host EXCEPTIONS:
