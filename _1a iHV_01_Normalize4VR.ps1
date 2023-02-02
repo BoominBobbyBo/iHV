@@ -2,8 +2,8 @@
 I Hate VARS - Normalize Content for VR
   Remove idiosynchracies that create duplicates, slow VAM down, make it harder to find things, and reduce VAM's overall stability
   And set in-game preferences for VR (e.g., Worldscale, default plugins, autoexpressions, etc.) 
-  
-  See Line 570 for script tuning options
+
+  See line 570 for script tuning options
 
 WARNING:
  - Directories or files that you do not wish to change must be added to the >>> $Exceptions <<< array 
@@ -575,7 +575,7 @@ $blnProcessRootFolders = $true  # Set to false if you are only processing Saves\
 $blnWatchForAllIdiots  = $true  # Expand the Idiots array to known offenders. Keep on when dealing with new content. Turn off when processing mature installs.
 
 $Normalize             = $true  # Normalize files into a single instance, where possible. Set to false if you've already run iHV and are updating only
-$NormalizeClothing     = $false 
+$NormalizeClothing     = $true 
 $NormalizeHair         = $true
 $NormalizeSkin         = $true  
 $NormalizeTextures     = $false # Normalize texture files into the parent texture folder. Reduces storage needs dramatically but Will impact game quality
@@ -593,7 +593,7 @@ $AuthorLighting_RegExFilter = "(Alpaca|Androinz|C\&G|ClubJulze|KittyMocap|Nial|N
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") } # don't use .\ for the root path for this script: it's kills path parsing above
 
 $ScriptName            = "iHV_Normalize4VR"
-$ScriptVersion         = "1.1.2"
+$ScriptVersion         = "1.1.3"
 $LogPath               = ($PSScriptRoot + "\_1a " + $ScriptName + ".log")
 $LogEntry              = Get-Date -Format "yyyy/MM/dd HH:mm" 
 
@@ -735,6 +735,7 @@ $Exceptions = @(
     "RT_LipSync"                      # Optional: by this plugin; creates protected space within Custom/audio/rt_lipsync for a curated audio library specific for this script
     "TexturePack"                     # optional: ChoiwaruOyaji (author) files that do not use unique file names
     "VamTextures"                     # optional: Male gen textures from Jackaroo
+    "TittyMagic"                      # Optional: for plugin by Everlaster
 )
 
 If($blnProcessRootFolders -eq $false){ $Exceptions += "iHV_Normalized" }
@@ -743,30 +744,76 @@ If($NormalizeClothing -eq $false){
     $Exceptions += "Custom/Clothing/Female"
 }
 else{
+    $Exceptions += "A1X"                             # optional: clothing author who does not use unique file names 
     $Exceptions += "2021_clothes_pack_by_Daz"        # optional: major clothing package without unique file names
     $Exceptions += "AnythingFashionVR"               # optional: major clothing author who does not use unique file names
+    $Exceptions += "cotyounoyume"                    # optional: plugin from cotyounoyume *
     $Exceptions += "CosmicFTW"                       # optional: major clothing author who does not use unique file names
     $Exceptions += "CuteSvetlana"                    # optional: major clothing author who does not use unique file names
-    $Exceptions += "DillDoe     "                    # optional: clothing author who does not use unique file names
+    $Exceptions += "Dixi"                            # optional: clothing author who does not use unique file names *
+    $Exceptions += "DillDoe"                         # optional: clothing author who does not use unique file names
+    $Exceptions += "Eros"                            # optional: clothing author who does not use unique file name
     $Exceptions += "ExpressionBlushingAndTears"      # optional: plugin from cotyounoyume
-    $Exceptions += "huaQ"                            # optional:  clothing author who does not use unique file names
+    $Exceptions += "GeeMan55"                        # optional: clothing author who does not use unique file names
+    $Exceptions += "huaQ"                            # optional: clothing author who does not use unique file names
+    $Exceptions += "HUNTING-SUCCUBUS"                # optional: clothing author who does not use unique file names
     $Exceptions += "Jackaroo"                        # optional: clothing author who does not use unique file names
     $Exceptions += "JaxZoa"                          # optional: major clothing author who does not use unique file names
-    $Exceptions += "Molmark"                         # optional: clothing author who does not use unique file names
-    $Exceptions += "Mr_CadillacV8"                   # optional: clothing author who does not use unique file names
+    $Exceptions += "JoyBoy"                          # optional: clothing author who does not use unique file names
+    $Exceptions += "Molmark"                         # optional: major clothing author who does not use unique file names
+    $Exceptions += "MonsterShinka"                   # optional: clothing author who does not use unique file names    
+    $Exceptions += "Mr_CadillacV8"                   # optional: major clothing author who does not use unique file names
     $Exceptions += "Oeshii"                          # optional: clothing author who does not use unique file names
+    $Exceptions += "OptiMist"                        # optional: clothing author who does not use unique file names *
+    $Exceptions += "paledriver"                      # optional: clothing author who does not use unique file names 
+    $Exceptions += "PL_Artists"                      # optional: clothing author who does not use unique file names *
     $Exceptions += "Putz"                            # optional: clothing author who does not use unique file names
     $Exceptions += "Qing"                            # optional: clothing author who does not use unique file names
+    $Exceptions += "Ramsess"                         # optional: clothing author who does not use unique file names
+    $Exceptions += "sharr"                           # optional: clothing author who does not use unique file names *
+    $Exceptions += "siwen666"                        # optional: clothing author who does not use unique file names
+    $Exceptions += "Skipppy"                         # optional: clothing author who does not use unique file names
     $Exceptions += "SupaRioAmateur"                  # optional: major clothing author who does not use unique file names
-    $Exceptions += "VL_13"                           # optional: clothing author who uses idio structures
-    $Exceptions += "VRDollz"                         # optional: clothing author who uses idio structures
+    $Exceptions += "tolborg"                         # optional: clothing author who does not use unique file names
+    $Exceptions += "VAM_GS"                          # optional: clothing author who uses idio structures
+    $Exceptions += "Vmax"                            # optional: clothing author who uses idio structures
+    $Exceptions += "VL_13"                           # optional: major clothing author who uses idio structures
+    $Exceptions += "VirtaArtieMitchel"               # optional: clothing author who uses idio structures *    
+    $Exceptions += "VRDollz"                         # optional: major clothing author who uses idio structures
+    $Exceptions += "XRWizard"                        # optional: clothing author who uses idio structures  
+    $Exceptions += "VaMChan"                         # optional: major Hair, scene author who does not use unique file names
+    $Exceptions += "vvvevevvv"                       # optional: major clothing author who uses idio structures    
 }
 If($NormalizeHair -eq $false){ 
     $Exceptions += "Custom/Hair/Female"
 }
 else{
+    $Exceptions += "A1X"                             # optional: Hair author who does not use unique file names *
+    $Exceptions += "CMA"                             # optional: Hair author who does not use unique file names *
+    $Exceptions += "BooGoo"                          # optional: Hair author who does not use unique file names *
+    $Exceptions += "Dnaddr"                          # optional: Hair author who does not use unique file names *
+    $Exceptions += "Jackaroo"                        # optional: clothing author who does not use unique file names
+    $Exceptions += "Oronan"                          # optional: clothing author who does not use unique file names
+    $Exceptions += "niko"                            # optional: Hair author who does not use unique file names *
+    $Exceptions += "Niko3DX"                         # optional: Hair author who does not use unique file names *
     $Exceptions += "NoStage"                         # optional: major Hair author who does not use unique file names
+    $Exceptions += "PodFlower"                       # optional: clothing author who does not use unique file names
+    $Exceptions += "Qing"                            # optional: clothing author who does not use unique file names
+    $Exceptions += "Ramsess"                         # optional: major Hair author who does not use unique file names
     $Exceptions += "Roac"                            # optional: major Hair author who does not use unique file names
+    $Exceptions += "Skipppy"                         # optional: clothing author who does not use unique file names
+    $Exceptions += "sharr"                           # optional: clothing author who does not use unique file names *
+    $Exceptions += "Sirap"                           # optional: clothing author who does not use unique file names
+    $Exceptions += "SupaRioAmateur"                  # optional: major clothing author who does not use unique file names
+    $Exceptions += "Theuf"                           # optional: clothing author who does not use unique file names
+    $Exceptions += "tolborg"                         # optional: clothing author who does not use unique file names
+    $Exceptions += "VAM_GS"                          # optional: clothing author who uses idio structures
+    $Exceptions += "vecterror"                       # optional: clothing author who does not use unique file names
+    $Exceptions += "Vmax"                            # optional: clothing author who uses idio structures
+    $Exceptions += "VL_13"                           # optional: major clothing author who uses idio structures
+    $Exceptions += "VirtaArtieMitchel"               # optional: clothing author who uses idio structures *    
+    $Exceptions += "VRDollz"                         # optional: major clothing author who uses idio structures
+    $Exceptions += "XRWizard"                        # optional: clothing author who uses idio structures  
     $Exceptions += "VaMChan"                         # optional: major Hair, scene author who does not use unique file names
 }
 
@@ -928,7 +975,12 @@ bugs:
 
 # Clists have hard-coded paths that would need to be re-written; task item
 
-.8
+.3
+
+- support for Everlaster plugin
+- exceptions: MonsterShinka, vvvevevvv
+
+.2
 
 - added flags for normalizing base clothing, hair, skin (presets are still normalized)
 - fix relative pathing to better support appearances
