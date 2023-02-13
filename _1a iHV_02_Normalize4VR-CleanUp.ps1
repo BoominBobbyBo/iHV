@@ -1,4 +1,4 @@
-<# CleanUp after NormalizeVAM4VR
+﻿<# CleanUp after NormalizeVAM4VR
 
   - Remove idio and idiot folder/files that have been processed by NormalizeVAM4VR
 
@@ -6,11 +6,12 @@
   - "idio" paths are those that are inside the high-level structure of VAM but often store duplicate content
 
   - DANGER!!!
+
   - Must first run NormalizeVAM4VR.ps1 (or ALL links between idio/idiot resources and VAM will be broken)
   - Backup, you fools BACKUP!
   
   - REQUIRES
-  - Content must have been extracted from VARs and VAR paths removed, using Normalize4VR.ps1
+  - Content must have been extracted from VARs and VAR paths removed using Normalize4VR.ps1
   - Keep the below arrays in synch with the arrays in the Normalize4VR.ps1 script
 
 #>
@@ -22,20 +23,18 @@ If($blnLaunched -ne $true){
 
   ###################### SCRIPT TUNING ###################### 
 
+$blnCleanIdiotContent  = $true  # Master switch: purge empty/duplicate content
+$blnCleanIdioContent   = $true  # Master switch: purge empty/duplicate content
 
-$blnProcessRootFolders = $true  # Set to false if you are only processing Saves\scene content and nothing in the Custom folder
-$blnWatchForAllIdiots  = $true  # Expand the Idiots array to known offenders. Keep on when dealing with new content. Turn off when processing mature installs.
-
-$Normalize             = $true  # Normalize files into a single instance, where possible. Set to false if you've already run iHV and are updating only
-$NormalizeClothing     = $false 
-$NormalizeHair         = $true
-$NormalizeSkin         = $true  
-$NormalizeTextures     = $false # Normalize texture files into the parent texture folder. Will impact game quality but increase stability.
+$NormalizeClothing     = $true  # Set to true if you want to purge empty/duplicate folders inside this major directory: review the exception list below
+$NormalizeHair         = $true  # Set to true if you want to purge empty/duplicate folders inside this major directory: review the exception list below
+$NormalizeSkin         = $false # Not implemented
+$NormalizeTextures     = $false # Not implemented
 
 If($vamRoot -eq $null){ $vamRoot = ($PSScriptRoot + "\") } 
 
 $ScriptName = "iHV_NormalizeVAM4VR_CleanUp"
-$ScriptVersion = "1.0.4"
+$ScriptVersion = "1.0.5"
 $LogPath = ".\_1a " + $ScriptName + ".log"
 $LogEntry = Get-Date -Format "yyyy/MM/dd HH:mm" 
 
@@ -55,10 +54,10 @@ $InstructionsDirs = @(
     "Custom/Clothing/Male/"
     "Custom/Hair/Female/"
     "Custom/Hair/Male/"
-    "Custom/SubScene/"
+    #"Custom/SubScene/"
+    #"Saves/scene/"      # NOT IMPLEMENTED
+    #"Saves/Person/"
 )
-$InstructionsDirs += "Saves/Person/"
-$InstructionsDirs += "Saves/scene/"
 
 # RESOURCES FOLDERS - directories with duplicates (files will be moved/consolidated)
 $ResourcePaths = @(
@@ -68,14 +67,20 @@ $ResourcePaths = @(
     "Custom/Atom/Person/Morphs/female_genitalia/"
     "Custom/Atom/Person/Morphs/male/"
     "Custom/Atom/Person/Morphs/male_genitalia/"
-    "Custom/Atom/Person/Plugins/"
+    # "Custom/Atom/Person/Plugins/" NOT IMPLEMENTED
     "Custom/Sounds/"
-    "Custom/Sounds/WEBM/"
+    # "Custom/Sounds/WEBM/" NOT IMPLEMENTED
   )
 If($blnCleanTextures -eq $true){$ResourcePaths += "Custom/Atom/Person/Textures/"} # test test test
 
 # PRESET FOLDERS - directories with unorganized preset files that clutter the preset root folder
-$PresetPaths = @("Custom/Atom/Person/")
+$PresetPaths = @(
+  "Custom/Atom/Person/Appearance/"
+  "Custom/Atom/Person/Clothing/"
+  "Custom/Atom/Person/Hair/"
+  # "Custom/Atom/Person/Pose/" # NOT IMPLEMENTED
+  # "Custom/Atom/Person/Skin/" # NOT IMPLEMENTED
+  )
 
 # IDIOT FOLDERS - case sensitive; this arry will be updated further down to include any unlisted folders found ino the root of VAM
 # add as you seem them appear but remove after no longer needed to speed up processing
@@ -97,7 +102,13 @@ $IdiotPaths = @(
         @{IdiotPath="custom/Clothing/repleace/";TargetPath="Custom/Atom/Idiots/"} # 
         @{IdiotPath="custom/Clothing/Road/";TargetPath="Custom/Atom/Idiots/"} # 
         @{IdiotPath="Custom/Clothing/Texture-Pack/";TargetPath="Custom/Atom/Idiots/"} # ivansx
-
+        @{IdiotPath="Saves/CUSTOM IMPORT - GF/";TargetPath="Custom/Atom/Idiots/"} # texture files
+        @{IdiotPath="Saves/Images/";TargetPath="Custom/Atom/Idiots/"} # texture files
+        @{IdiotPath="Saves/Room textures/";TargetPath="Custom/Atom/Idiots/"} # texture files
+        @{IdiotPath="Saves/Textures/";TargetPath="Custom/Atom/Idiots/"} # texture files
+        @{IdiotPath="Saves/Textures-Mix/";TargetPath="Custom/Atom/Idiots/"} # texture files
+        @{IdiotPath="Saves/V0.1_YUKA/";TargetPath="Custom/Atom/Idiots/"} # texture files
+        @{IdiotPath="Saves/资源打包(Thorn)/";TargetPath="Custom/Atom/Idiots/"} # texture files
  )
   
 # NATIVE VAM ROOT FOLDERS - part of the base build
@@ -118,7 +129,7 @@ $NativeRootFolders = @(
     "VaM_Data"
 )
 # NATIVE SAVE FOLDERS - part of the base build - folders found within the parent that are not in this array will be treated as Idiot folders
-$NativeSaveFsolders = @(
+$NativeSaveFolders = @(
     "Saves/AnimationPattern" # DillDoe
     "Saves/Animations" # native
     "Saves/AudioMate" # Dub plugin
@@ -161,34 +172,83 @@ $Exceptions = @(
     "TexturePack"                     # optional: ChoiwaruOyaji (author) files that do not use unique file names
     "VamTextures"                     # optional: Male gen textures from Jackaroo
 )
-If($blnProcessRootFolders -eq $false){ $Exceptions += "iHV_Normalized" }
+$Exceptions += "iHV_Normalized"       # don't touch anything in normalized folders
 
 If($NormalizeClothing -eq $false){ 
     $Exceptions += "Custom/Clothing/Female"
 }
 else{
+    $Exceptions += "A1X"                             # optional: clothing author who does not use unique file names 
     $Exceptions += "2021_clothes_pack_by_Daz"        # optional: major clothing package without unique file names
     $Exceptions += "AnythingFashionVR"               # optional: major clothing author who does not use unique file names
+    $Exceptions += "cotyounoyume"                    # optional: plugin from cotyounoyume *
     $Exceptions += "CosmicFTW"                       # optional: major clothing author who does not use unique file names
     $Exceptions += "CuteSvetlana"                    # optional: major clothing author who does not use unique file names
-    $Exceptions += "DillDoe     "                    # optional: clothing author who does not use unique file names
+    $Exceptions += "Dixi"                            # optional: clothing author who does not use unique file names *
+    $Exceptions += "DillDoe"                         # optional: clothing author who does not use unique file names
+    $Exceptions += "Eros"                            # optional: clothing author who does not use unique file name
     $Exceptions += "ExpressionBlushingAndTears"      # optional: plugin from cotyounoyume
+    $Exceptions += "GeeMan55"                        # optional: clothing author who does not use unique file names
+    $Exceptions += "huaQ"                            # optional: clothing author who does not use unique file names
+    $Exceptions += "HUNTING-SUCCUBUS"                # optional: clothing author who does not use unique file names
     $Exceptions += "Jackaroo"                        # optional: clothing author who does not use unique file names
     $Exceptions += "JaxZoa"                          # optional: major clothing author who does not use unique file names
-    $Exceptions += "Molmark"                         # optional: clothing author who does not use unique file names
+    $Exceptions += "JoyBoy"                          # optional: clothing author who does not use unique file names
+    $Exceptions += "Molmark"                         # optional: major clothing author who does not use unique file names
+    $Exceptions += "MonsterShinka"                   # optional: clothing author who does not use unique file names    
+    $Exceptions += "Mr_CadillacV8"                   # optional: major clothing author who does not use unique file names
     $Exceptions += "Oeshii"                          # optional: clothing author who does not use unique file names
+    $Exceptions += "OptiMist"                        # optional: clothing author who does not use unique file names *
+    $Exceptions += "paledriver"                      # optional: clothing author who does not use unique file names 
+    $Exceptions += "PL_Artists"                      # optional: clothing author who does not use unique file names *
     $Exceptions += "Putz"                            # optional: clothing author who does not use unique file names
     $Exceptions += "Qing"                            # optional: clothing author who does not use unique file names
+    $Exceptions += "Ramsess"                         # optional: clothing author who does not use unique file names
+    $Exceptions += "sharr"                           # optional: clothing author who does not use unique file names *
+    $Exceptions += "siwen666"                        # optional: clothing author who does not use unique file names
+    $Exceptions += "Skipppy"                         # optional: clothing author who does not use unique file names
+    $Exceptions += "Summer Sleepwear"
     $Exceptions += "SupaRioAmateur"                  # optional: major clothing author who does not use unique file names
-    $Exceptions += "VL_13"                           # optional: clothing author who uses idio structures
-    $Exceptions += "VRDollz"                         # optional: clothing author who uses idio structures
+    $Exceptions += "tolborg"                         # optional: clothing author who does not use unique file names
+    $Exceptions += "VAM_GS"                          # optional: clothing author who uses idio structures
+    $Exceptions += "Vmax"                            # optional: clothing author who uses idio structures
+    $Exceptions += "VL_13"                           # optional: major clothing author who uses idio structures
+    $Exceptions += "VirtaArtieMitchel"               # optional: clothing author who uses idio structures *    
+    $Exceptions += "VRDollz"                         # optional: major clothing author who uses idio structures
+    $Exceptions += "XRWizard"                        # optional: clothing author who uses idio structures  
+    $Exceptions += "VaMChan"                         # optional: major Hair, scene author who does not use unique file names
+    $Exceptions += "vvvevevvv"                       # optional: major clothing author who uses idio structures    
 }
 If($NormalizeHair -eq $false){ 
     $Exceptions += "Custom/Hair/Female"
 }
 else{
+    $Exceptions += "A1X"                             # optional: Hair author who does not use unique file names *
+    $Exceptions += "CMA"                             # optional: Hair author who does not use unique file names *
+    $Exceptions += "BooGoo"                          # optional: Hair author who does not use unique file names *
+    $Exceptions += "Dnaddr"                          # optional: Hair author who does not use unique file names *
+    $Exceptions += "Jackaroo"                        # optional: clothing author who does not use unique file names
+    $Exceptions += "Oronan"                          # optional: clothing author who does not use unique file names
+    $Exceptions += "niko"                            # optional: Hair author who does not use unique file names *
+    $Exceptions += "Niko3DX"                         # optional: Hair author who does not use unique file names *
     $Exceptions += "NoStage"                         # optional: major Hair author who does not use unique file names
+    $Exceptions += "PodFlower"                       # optional: clothing author who does not use unique file names
+    $Exceptions += "Qing"                            # optional: clothing author who does not use unique file names
+    $Exceptions += "Ramsess"                         # optional: major Hair author who does not use unique file names
     $Exceptions += "Roac"                            # optional: major Hair author who does not use unique file names
+    $Exceptions += "Skipppy"                         # optional: clothing author who does not use unique file names
+    $Exceptions += "sharr"                           # optional: clothing author who does not use unique file names *
+    $Exceptions += "Sirap"                           # optional: clothing author who does not use unique file names
+    $Exceptions += "SupaRioAmateur"                  # optional: major clothing author who does not use unique file names
+    $Exceptions += "Theuf"                           # optional: clothing author who does not use unique file names
+    $Exceptions += "tolborg"                         # optional: clothing author who does not use unique file names
+    $Exceptions += "VAM_GS"                          # optional: clothing author who uses idio structures
+    $Exceptions += "vecterror"                       # optional: clothing author who does not use unique file names
+    $Exceptions += "Vmax"                            # optional: clothing author who uses idio structures
+    $Exceptions += "VL_13"                           # optional: major clothing author who uses idio structures
+    $Exceptions += "VirtaArtieMitchel"               # optional: clothing author who uses idio structures *    
+    $Exceptions += "VRDollz"                         # optional: major clothing author who uses idio structures
+    $Exceptions += "XRWizard"                        # optional: clothing author who uses idio structures  
     $Exceptions += "VaMChan"                         # optional: major Hair, scene author who does not use unique file names
 }
 
@@ -227,7 +287,7 @@ If($blnCleanIdiotContent -eq $true) {
       ForEach($Exception in $Exceptions){ If($_.FullName.Replace("\","/") -ilike ("*/"+$Exception+"*")) { $blnException = $true } }
 
       $blnIsRootFolder = $false
-      ForEach($RootFolder in $NativeSavesFolders){ If($_.FullName.Replace("\","/") -ilike ("*/"+$RootFolder)) { $blnIsRootFolder = $true } }
+      ForEach($RootFolder in $NativeSaveFolders){ If($_.FullName.Replace("\","/") -ilike ("*/"+$RootFolder)) { $blnIsRootFolder = $true } }
 
       If($blnException -ne $true -and $blnIsRootFolder -ne $true){
         write-host "++++Idiot folder: Saves/" $_.Name.Replace("\","/") " :: " $_.FullName
@@ -272,28 +332,30 @@ If($blnCleanIdiotContent -eq $true) {
 If($blnCleanIdioContent -eq $true){
 
     $allResourcePaths =@()
-    $allResourcePaths += $ContentFilePaths
+    $allResourcePaths += $InstructionsDirs
     $allResourcePaths += $ResourcePaths
     $allResourcePaths += $PresetPaths
 
     $allResourcePaths | Foreach-Object { 
     
       $ResourceDir = $_
-      #Write-Host $ScriptName "---Is Idio? " $ResourceDir
+      Write-Host $ScriptName "---Processing: " $ResourceDir
 
       Get-ChildItem -Path ($vamRoot + $ResourceDir) -Directory -Force -ErrorAction SilentlyContinue | Foreach-Object { # if this faults, directory in the array doesn't exist in the file system
+        # Write-Host $ScriptName "   Subfolder: " $_.
 
         $blnException = $false
         ForEach($Exception in $Exceptions){ If($_.FullName.Replace("\","/") -ilike ("*/"+$Exception+"*")) { $blnException = $true } }
-        #Write-Host is exception? ... $_.FullName.Replace("\","/") $blnException
+        # Write-Host $ScriptName is exception? ... $_.FullName $blnException
 
         $blnIsRootFolder = $false
         ForEach($RootFolder in $NativeRootFolders){ If($_.FullName.Replace("\","/") -ilike ("*/"+$RootFolder)) { $blnIsRootFolder = $true } }
         ForEach($RootFolder in $NativeSavesFolders){ If($_.FullName.Replace("\","/") -ilike ("*/"+$RootFolder)) { $blnIsRootFolder = $true } }
         ForEach($RootFolder in $NativeCustomFolders){ If($_.FullName.Replace("\","/") -ilike ("*/"+$RootFolder)) { $blnIsRootFolder = $true } }
+        # Write-Host $ScriptName "IsRootFldr: .... " $_.FullName $blnIsRootFolder
 
         If($blnException -eq $true -or $_ -match "Saves/" -or $blnIsRootFolder -eq $true){ $LogEntry + "----IDIO EXCEPTION: " + $_.FullName | Out-File -FilePath $LogPath -Append} 
-        ElseIf($blnCleanTextures -eq $false -and $_.FullName-ilike ("*\texture*\*") ) {}
+        ElseIf($blnCleanTextures -eq $false -and $_.FullName-ilike ("*\texture*\*") ) {} # Write-Host $ScriptName Texture fldr .... $_.FullName - exempt }
         Else{
 
           $_ | Remove-Item -Force -Recurse
@@ -311,11 +373,11 @@ If($blnCleanIdioContent -eq $true){
 
 
 #
-# Purge extra files
+# Purge extra files by type
 
 # Enable if you are not developing / testing; leave as conditionals (like vs match) to ensure hyper accurate matches
 Get-ChildItem -Path ($vamRoot + "Addonpackages") -File -Recurse -Force | Where-Object { $_.Name -ilike "meta.json" -or $_.Name -ilike "*.txt" -or $_.Name -ilike "*.dds" -or $_.Name -ilike "*.obj" -or $_.Name -ilike "*.mtl" -or $_.Name -ilike "*.dds" -or $_.Name -ilike "*.duf" -or $_.Name -ilike "*.dsf" -or $_.Name -ilike "*.psd" -or $_.Name -ilike "*.obj" -or $_.Name -ilike "*.info" -or $_.Name -ilike "*.meta"} | Remove-Item -Force
-Get-ChildItem -Path ($vamRoot + "Custom") -File -Recurse -Force | Where-Object { $_.Name -ilike "*.var" -or $_.Name -ilike "*.zip" -or $_.Name -ilike "*.rar" -or $_.Name -ilike "meta.json" -or $_.Name -ilike "*.txt" -or $_.Name -ilike "*.dds" -or $_.Name -ilike "*.obj" -or $_.Name -ilike "*.mtl" -or $_.Name -ilike "*.dds" -or $_.Name -ilike "*.duf" -or $_.Name -ilike "*.dsf" -or $_.Name -ilike "*.psd" -or $_.Name -ilike "*.obj" -or $_.Name -ilike "*.info" -or $_.Name -ilike "*.meta"} | Remove-Item -Force
+Get-ChildItem -Path ($vamRoot + "Custom") -File -Recurse -Force | Where-Object { $_.Name -ilike "*PostMagic*" -OR $_.Name -ilike "*.var" -or $_.Name -ilike "*.zip" -or $_.Name -ilike "*.rar" -or $_.Name -ilike "meta.json" -or $_.Name -ilike "*.txt" -or $_.Name -ilike "*.dds" -or $_.Name -ilike "*.obj" -or $_.Name -ilike "*.mtl" -or $_.Name -ilike "*.dds" -or $_.Name -ilike "*.duf" -or $_.Name -ilike "*.dsf" -or $_.Name -ilike "*.psd" -or $_.Name -ilike "*.obj" -or $_.Name -ilike "*.info" -or $_.Name -ilike "*.meta"} | Remove-Item -Force
 Get-ChildItem -Path ($vamRoot + "Saves") -File -Recurse -Force | Where-Object { $_.Name -ilike "*.var" -or $_.Name -ilike "*.zip" -or $_.Name -ilike "*.rar" -or $_.Name -ilike "meta.json" -or $_.Name -ilike "*.txt" -or $_.Name -ilike "*.dds" -or $_.Name -ilike "*.obj" -or $_.Name -ilike "*.mtl" -or $_.Name -ilike "*.dds" -or $_.Name -ilike "*.duf" -or $_.Name -ilike "*.dsf" -or $_.Name -ilike "*.psd" -or $_.Name -ilike "*.obj" -or $_.Name -ilike "*.info" -or $_.Name -ilike "*.meta"} | Remove-Item -Force
 
 
